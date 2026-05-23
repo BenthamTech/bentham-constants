@@ -5,43 +5,25 @@ import (
 	"encoding/json"
 )
 
-//go:embed ../data/*.json
+//go:embed ../data/common/*.json ../data/incorporation/*.json ../data/trademark/*.json
 var dataFS embed.FS
 
-func load(filename string, target interface{}) error {
-	data, err := dataFS.ReadFile("../data/" + filename)
+func load(path string, target interface{}) error {
+	data, err := dataFS.ReadFile("../data/" + path)
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(data, target)
 }
 
-func States() (map[string]string, error) {
-	var m map[string]string
-	return m, load("states.json", &m)
-}
+// Common
+func States() (map[string]string, error)      { var m map[string]string; return m, load("common/states.json", &m) }
+func EntityTypes() (map[string]string, error)  { var m map[string]string; return m, load("common/entity-types.json", &m) }
 
-func CompanyStatuses() (map[string]string, error) {
-	var m map[string]string
-	return m, load("company-statuses.json", &m)
-}
+// Incorporation
+func CompanyStatuses() (map[string]string, error)      { var m map[string]string; return m, load("incorporation/company-statuses.json", &m) }
+func DirectorDesignations() (map[string]string, error) { var m map[string]string; return m, load("incorporation/director-designations.json", &m) }
+func McaDefaults() (map[string]string, error)          { var m map[string]string; return m, load("incorporation/mca-defaults.json", &m) }
 
-func TrademarkStatuses() (map[string]string, error) {
-	var m map[string]string
-	return m, load("trademark-statuses.json", &m)
-}
-
-func EntityTypes() (map[string]string, error) {
-	var m map[string]string
-	return m, load("entity-types.json", &m)
-}
-
-func DirectorDesignations() (map[string]string, error) {
-	var m map[string]string
-	return m, load("director-designations.json", &m)
-}
-
-func McaDefaults() (map[string]string, error) {
-	var m map[string]string
-	return m, load("mca-defaults.json", &m)
-}
+// Trademark
+func TrademarkStatuses() (map[string]string, error) { var m map[string]string; return m, load("trademark/trademark-statuses.json", &m) }
