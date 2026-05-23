@@ -1,16 +1,16 @@
 // --- Common ---
-import entityTypes from '../../data/common/entity-types.json';
+import entityTypes from '../data/common/entity-types.json';
 
 // --- Incorporation ---
-import incorporationStates from '../../data/incorporation/states.json';
-import companyStatuses from '../../data/incorporation/company-statuses.json';
-import documentKeys from '../../data/incorporation/document-keys.json';
-import directorDesignations from '../../data/incorporation/director-designations.json';
-import mcaDefaults from '../../data/incorporation/mca-defaults.json';
+import incorporationStates from '../data/incorporation/states.json';
+import companyStatuses from '../data/incorporation/company-statuses.json';
+import documentKeys from '../data/incorporation/document-keys.json';
+import directorDesignations from '../data/incorporation/director-designations.json';
+import mcaDefaults from '../data/incorporation/mca-defaults.json';
 
 // --- Trademark ---
-import trademarkStatuses from '../../data/trademark/trademark-statuses.json';
-import stateDistricts from '../../data/trademark/state-districts.json';
+import trademarkStatuses from '../data/trademark/trademark-statuses.json';
+import stateDistricts from '../data/trademark/state-districts.json';
 
 // Common
 export type EntityType = keyof typeof entityTypes;

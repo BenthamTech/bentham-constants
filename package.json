@@ -2,9 +2,9 @@
   "name": "@bentham/constants",
   "version": "1.0.0",
   "description": "Shared constants for Bentham services (language-agnostic JSON source of truth)",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": ["dist", "data"],
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build"

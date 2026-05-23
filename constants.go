@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 )
 
-//go:embed ../data/common/*.json ../data/incorporation/*.json ../data/trademark/*.json
+//go:embed data/common/*.json data/incorporation/*.json data/trademark/*.json
 var dataFS embed.FS
 
 func load(path string, target interface{}) error {
-	data, err := dataFS.ReadFile("../data/" + path)
+	data, err := dataFS.ReadFile("data/" + path)
 	if err != nil {
 		return err
 	}
