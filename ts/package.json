@@ -1,0 +1,22 @@
+{
+  "name": "@bentham/constants",
+  "version": "1.0.0",
+  "description": "Shared constants for Bentham services (language-agnostic JSON source of truth)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "data"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BenthamTech/bentham-constants.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

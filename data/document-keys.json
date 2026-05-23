@@ -1,0 +1,15 @@
+{
+  "company": {
+    "OFFICE_ADDRESS_PROOF": "officeAddressProof",
+    "OFFICE_ADDRESS_GEOTAGGED_PHOTO": "officeAddressGeotaggedPhoto",
+    "NOC": "noc",
+    "SPECIMEN_DOC": "specimenDoc",
+    "SPICE_A_CLARIFICATION": "spiceAClarification"
+  },
+  "director": {
+    "ADDRESS_PROOF": "addressProof",
+    "PAN_CARD": "panCard",
+    "AADHAAR_CARD": "aadhaarCard",
+    "PASSPORT_SIZE_IMAGE": "passportSizeImage"
+  }
+}

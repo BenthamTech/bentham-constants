@@ -1,0 +1,10 @@
+{
+  "DRAFT": "Draft",
+  "UNDER_REVIEW": "Under Review",
+  "FILING_QUEUED": "Filing Queued",
+  "FILING_IN_PROGRESS": "Filing in Progress",
+  "OTP_VERIFICATION": "OTP Verification",
+  "OTP_VERIFICATION_COMPLETE": "OTP Verification Complete",
+  "SPICEB_FORM_SUBMITTED": "SPICe-B Form Submitted",
+  "INC_FILING_COMPLETE": "Incorporation Filing Complete"
+}
