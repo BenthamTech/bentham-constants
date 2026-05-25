@@ -1,0 +1,14 @@
+{
+  "DRAFT": "Draft",
+  "PAYMENT_PENDING": "Payment Pending",
+  "FILING_IN_PROGRESS": "Filing in Progress",
+  "AWAITING_REVIEW": "Awaiting Review",
+  "APPROVED": "Approved",
+  "FILING_QUEUED": "Filing Queued",
+  "PAYMENT_COMPLETED": "Payment Completed",
+  "FILED": "Filed",
+  "REGISTERED": "Registered",
+  "OBJECTED": "Objected",
+  "ABANDONED": "Abandoned",
+  "WITHDRAWN": "Withdrawn"
+}
