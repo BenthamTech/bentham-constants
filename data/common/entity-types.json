@@ -1,0 +1,8 @@
+{
+  "PRIVATE_LIMITED": "Private Limited Company",
+  "PUBLIC_LIMITED": "Public Limited Company",
+  "ONE_PERSON_COMPANY": "One Person Company",
+  "LLP": "Limited Liability Partnership",
+  "PARTNERSHIP": "Partnership Firm",
+  "SOLE_PROPRIETORSHIP": "Sole Proprietorship"
+}
