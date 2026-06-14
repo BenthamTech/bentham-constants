@@ -16,33 +16,16 @@ function buildLog(contextOverrides?: Record<string, unknown>) {
   return { ...getContext(), ...contextOverrides };
 }
 
+function makeLogFn(level: 'debug' | 'info' | 'warn' | 'error') {
+  return (msgOrCtx: string | Record<string, unknown>, msg?: string) => {
+    if (typeof msgOrCtx === 'string') pinoInstance[level](buildLog(), msgOrCtx);
+    else pinoInstance[level](buildLog(msgOrCtx), msg!);
+  };
+}
+
 export const logger = {
-  debug(msgOrCtx: string | Record<string, unknown>, msg?: string) {
-    if (typeof msgOrCtx === 'string') {
-      pinoInstance.debug(buildLog(), msgOrCtx);
-    } else {
-      pinoInstance.debug(buildLog(msgOrCtx), msg!);
-    }
-  },
-  info(msgOrCtx: string | Record<string, unknown>, msg?: string) {
-    if (typeof msgOrCtx === 'string') {
-      pinoInstance.info(buildLog(), msgOrCtx);
-    } else {
-      pinoInstance.info(buildLog(msgOrCtx), msg!);
-    }
-  },
-  warn(msgOrCtx: string | Record<string, unknown>, msg?: string) {
-    if (typeof msgOrCtx === 'string') {
-      pinoInstance.warn(buildLog(), msgOrCtx);
-    } else {
-      pinoInstance.warn(buildLog(msgOrCtx), msg!);
-    }
-  },
-  error(msgOrCtx: string | Record<string, unknown>, msg?: string) {
-    if (typeof msgOrCtx === 'string') {
-      pinoInstance.error(buildLog(), msgOrCtx);
-    } else {
-      pinoInstance.error(buildLog(msgOrCtx), msg!);
-    }
-  },
+  debug: makeLogFn('debug'),
+  info: makeLogFn('info'),
+  warn: makeLogFn('warn'),
+  error: makeLogFn('error'),
 };
