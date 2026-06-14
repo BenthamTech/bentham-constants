@@ -1,45 +1,84 @@
 # bentham-constants
 
-Language-agnostic constants shared across all Bentham services.
+Shared constants and utilities for all Bentham services.
 
-## Architecture
-
-```
-data/           ← JSON source of truth (language-agnostic)
-ts/             ← npm package: @bentham/constants
-go/             ← Go module: github.com/BenthamTech/bentham-constants/go
-```
-
-## Usage
-
-### Node.js / TypeScript
+## Install
 
 ```bash
 npm install @bentham/constants
 ```
 
+## Constants
+
 ```ts
-import { STATES, COMPANY_STATUSES, MCA_DEFAULTS } from '@bentham/constants';
+import { COMPANY_STATUSES, TRADEMARK_STATUSES, MCA_DEFAULTS } from '@bentham/constants';
 ```
 
-### Go
+## Logger
 
-```go
-import constants "github.com/BenthamTech/bentham-constants/go"
+Structured JSON logging with automatic request context via AsyncLocalStorage.
 
-states, _ := constants.States()
+### Setup (once per service)
+
+```ts
+import { requestContext } from '@bentham/constants/logger';
+
+// Express
+app.use(requestContext({
+  service: 'bentham-mca-api',
+  extractors: {
+    userId: (req) => req.user?.id,
+    applicationId: (req) => req.params.id,
+  }
+}));
 ```
 
-### Raw JSON (any language)
+### Usage (anywhere — no function signature changes)
 
-```bash
-# Direct import from data/ directory
-cat data/states.json
+```ts
+import { logger, addContext } from '@bentham/constants/logger';
+
+logger.info('Filing started');
+logger.info({ applicationId: 'cmq3...' }, 'With extra context');
+logger.error({ error: { message: 'fail', code: 'X' } }, 'Something broke');
+
+// Enrich context mid-request
+addContext({ applicationId: 'cmq3...' });
 ```
 
-## Adding Constants
+### Next.js API Routes
 
-1. Add/edit the JSON file in `data/`
-2. TS wrapper auto-imports via `resolveJsonModule`
-3. Go wrapper uses `embed.FS` — no codegen needed
-4. Tag a new version: `git tag v1.x.x && git push --tags`
+```ts
+import { withRequestContext } from '@bentham/constants/logger';
+
+const wrapped = withRequestContext({ service: 'bentham-app' });
+export default wrapped(async (req, res) => { ... });
+```
+
+### Log Schema
+
+| Field | Auto | Description |
+|-------|------|-------------|
+| `timestamp` | ✓ | ISO 8601 UTC |
+| `level` | ✓ | debug/info/warn/error |
+| `requestId` | ✓ | UUID from x-request-id or auto-generated |
+| `service` | ✓ | From middleware config |
+| `api` | ✓ | HTTP method + path |
+| `msg` | ✓ | Log message |
+| `userId` | extractor | User identifier |
+| `applicationId` | manual | Business entity ID |
+| `durationMs` | manual | Request duration |
+| `error` | manual | `{ message, stack, code }` |
+
+### Environment
+
+- `LOG_LEVEL` — `debug`, `info` (default), `warn`, `error`
+- Pretty output locally: `node app.js | npx pino-pretty`
+
+## Architecture
+
+```
+data/           ← JSON constants (language-agnostic)
+src/index.ts    ← constants exports
+src/logger/     ← structured logging module
+```
