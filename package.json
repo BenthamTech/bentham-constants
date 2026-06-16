@@ -15,10 +15,13 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "tsconfig.json"
   ],
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "jest",
     "prepublishOnly": "npm run build"
   },
