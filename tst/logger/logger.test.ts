@@ -1,6 +1,6 @@
-import { asyncLocalStorage } from './context';
-import { getContext, addContext } from './context';
-import { logger } from './logger';
+import { asyncLocalStorage } from '../../src/logger/context';
+import { getContext, addContext } from '../../src/logger/context';
+import { logger } from '../../src/logger/logger';
 import { requestContext } from './middleware';
 
 describe('logger/context', () => {
