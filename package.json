@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -12,6 +12,10 @@
     "./logger": {
       "types": "./dist/src/logger/index.d.ts",
       "default": "./dist/src/logger/index.js"
+    },
+    "./hmac": {
+      "types": "./dist/src/hmac/index.d.ts",
+      "default": "./dist/src/hmac/index.js"
     }
   },
   "files": [
