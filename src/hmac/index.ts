@@ -119,7 +119,7 @@ export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
       {
         method: req.method,
         path: req.originalUrl,
-        body: JSON.stringify(req.body ?? ''),
+        body: JSON.stringify(req.body || {}),
         headers: req.headers,
       },
       { secret, allowedServices, maxAgeSeconds },
