@@ -20,6 +20,10 @@
     "./config": {
       "types": "./dist/src/config/index.d.ts",
       "default": "./dist/src/config/index.js"
+    },
+    "./env": {
+      "types": "./dist/src/env/index.d.ts",
+      "default": "./dist/src/env/index.js"
     }
   },
   "files": [
