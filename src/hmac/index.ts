@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { logger } from '../logger/logger';
 
 export interface HmacHeaders {
   'x-service-id': string;
@@ -91,4 +92,45 @@ export function verifyHmacSignature(req: VerifyHmacRequest, options: VerifyHmacO
   }
 
   return { valid: true };
+}
+
+export interface HmacAuthMiddlewareOptions {
+  secret: string;
+  allowedServices: string[];
+  /** Skip verification when NODE_ENV=development (default: true) */
+  skipInDev?: boolean;
+  /** Max age of request in seconds (default: 300) */
+  maxAgeSeconds?: number;
+}
+
+/**
+ * Express middleware that verifies HMAC signatures on incoming requests.
+ * Wraps verifyHmacSignature with request/response handling.
+ */
+export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
+  const { secret, allowedServices, skipInDev = true, maxAgeSeconds = 300 } = opts;
+
+  return (req: any, res: any, next: () => void) => {
+    if (skipInDev && process.env.NODE_ENV === 'development') {
+      return next();
+    }
+
+    const result = verifyHmacSignature(
+      {
+        method: req.method,
+        path: req.originalUrl,
+        body: JSON.stringify(req.body ?? ''),
+        headers: req.headers,
+      },
+      { secret, allowedServices, maxAgeSeconds },
+    );
+
+    if (result.valid) {
+      return next();
+    }
+
+    const serviceId = req.headers['x-service-id'] || 'unknown';
+    logger.error({ serviceId, path: req.originalUrl, error: result.error }, 'HMAC auth rejected');
+    res.status(result.statusCode ?? 401).json({ success: false, message: result.error });
+  };
 }
