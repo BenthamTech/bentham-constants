@@ -52,9 +52,8 @@ export function requestLogger(opts: RequestLoggerOptions) {
     const start = Date.now();
     const requestId = (req.headers['x-request-id'] as string) || randomUUID();
     const { method, originalUrl } = req;
-    const api = `${method} ${req.route?.path || req.path || req.url}`;
 
-    const context: LogContext = { requestId, service: opts.service, api };
+    const context: LogContext = { requestId, service: opts.service, api: `${method} ${req.path || req.url}` };
 
     if (opts.extractors) {
       for (const [key, extractor] of Object.entries(opts.extractors)) {
@@ -75,6 +74,10 @@ export function requestLogger(opts: RequestLoggerOptions) {
 
     res.on('finish', () => {
       const duration = Date.now() - start;
+      // req.route is available after route matching (only in finish callback)
+      const api = `${method} ${req.route?.path || req.path || req.url}`;
+      context.api = api;
+
       const excluded = excludePaths.some((p: string) => originalUrl.startsWith(p));
       const logEntry: Record<string, unknown> = {
         method,
@@ -89,7 +92,7 @@ export function requestLogger(opts: RequestLoggerOptions) {
       }
 
       const level = res.statusCode >= 400 ? 'error' : 'info';
-      logger[level](logEntry, `${method} ${originalUrl} ${res.statusCode} (${duration}ms)`);
+      logger[level](logEntry, `${api} ${res.statusCode} (${duration}ms)`);
     });
 
     asyncLocalStorage.run(context, () => next());

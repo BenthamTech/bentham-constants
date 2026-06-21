@@ -300,4 +300,19 @@ describe('middleware/requestLogger', () => {
       done();
     });
   });
+
+  test('uses req.route.path for parameterized pattern in log message', async () => {
+    const mw = requestLogger({ service: 'test' });
+    const req = createMockReq({ method: 'GET', originalUrl: '/api/v1/files/abc123', path: '/api/v1/files/abc123' });
+    const res = createMockRes();
+
+    mw(req, res, () => {
+      // Simulate Express populating req.route after route matching
+      req.route = { path: '/api/v1/files/:id' };
+      res.emit('finish');
+    });
+    await flushLogs();
+    const log = JSON.parse(output[0]);
+    expect(log.msg).toContain('GET /api/v1/files/:id');
+  });
 });
