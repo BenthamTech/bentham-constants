@@ -24,6 +24,10 @@
     "./env": {
       "types": "./dist/src/env/index.d.ts",
       "default": "./dist/src/env/index.js"
+    },
+    "./middleware": {
+      "types": "./dist/src/middleware/index.d.ts",
+      "default": "./dist/src/middleware/index.js"
     }
   },
   "files": [
