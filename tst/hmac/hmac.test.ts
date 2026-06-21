@@ -82,3 +82,83 @@ describe('verifyHmacSignature', () => {
     expect(result.error).toBe('Auth not configured');
   });
 });
+
+describe('hmacAuthMiddleware', () => {
+  const { hmacAuthMiddleware, generateHmacHeaders } = require('../../src/hmac/index');
+  const secret = 'middleware-test-secret';
+  const allowedServices = ['bentham-app', 'bentham-mca-api'];
+
+  function makeMocks() {
+    const next = jest.fn();
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    return { next, res };
+  }
+
+  function makeReq(overrides: any = {}) {
+    const body = overrides.body ?? {};
+    const headers = generateHmacHeaders(
+      overrides.method ?? 'POST',
+      overrides.originalUrl ?? '/api/test',
+      JSON.stringify(body),
+      secret,
+      overrides.serviceId ?? 'bentham-app',
+    );
+    return {
+      method: overrides.method ?? 'POST',
+      originalUrl: overrides.originalUrl ?? '/api/test',
+      body,
+      headers: { ...headers, ...overrides.headers },
+    };
+  }
+
+  const middleware = hmacAuthMiddleware({ secret, allowedServices });
+
+  it('calls next() for valid HMAC', () => {
+    const { next, res } = makeMocks();
+    middleware(makeReq(), res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for missing headers', () => {
+    const { next, res } = makeMocks();
+    middleware({ method: 'POST', originalUrl: '/api', body: {}, headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Missing auth headers' });
+  });
+
+  it('returns 401 for invalid signature', () => {
+    const { next, res } = makeMocks();
+    const req = makeReq();
+    req.headers['x-signature'] = 'invalid';
+    middleware(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('returns 403 for unknown service', () => {
+    const { next, res } = makeMocks();
+    const req = makeReq({ serviceId: 'unknown-svc' });
+    middleware(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Service not allowed' });
+  });
+
+  it('returns 401 for expired timestamp', () => {
+    const { next, res } = makeMocks();
+    const req = makeReq();
+    req.headers['x-timestamp'] = '1000000000';
+    middleware(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('skips verification in development mode', () => {
+    const { next, res } = makeMocks();
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    const devMiddleware = hmacAuthMiddleware({ secret, allowedServices });
+    devMiddleware({ method: 'GET', originalUrl: '/', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    process.env.NODE_ENV = prev;
+  });
+});
