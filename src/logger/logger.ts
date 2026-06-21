@@ -10,7 +10,7 @@ const pinoInstance = pino({
     },
   },
   base: null, // we inject our own base fields via context
-});
+}, process.stdout);
 
 function buildLog(contextOverrides?: Record<string, unknown>) {
   return { ...getContext(), ...contextOverrides };
