@@ -18,7 +18,10 @@ export async function fetchExternal(
 
   const fetchOptions: RequestInit = { ...options };
   if (timeoutMs) {
-    fetchOptions.signal = AbortSignal.timeout(timeoutMs);
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    fetchOptions.signal = options?.signal
+      ? AbortSignal.any([options.signal, timeoutSignal])
+      : timeoutSignal;
   }
 
   let response: Response;
