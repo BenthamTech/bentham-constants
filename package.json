@@ -28,6 +28,10 @@
     "./middleware": {
       "types": "./dist/src/middleware/index.d.ts",
       "default": "./dist/src/middleware/index.js"
+    },
+    "./fetch": {
+      "types": "./dist/src/fetch/index.d.ts",
+      "default": "./dist/src/fetch/index.js"
     }
   },
   "files": [
