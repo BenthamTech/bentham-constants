@@ -65,6 +65,15 @@ describe('fetchExternal', () => {
     expect(result).toBe(resp);
   });
 
+  it('combines caller signal with timeout signal via AbortSignal.any', async () => {
+    mockFetch.mockResolvedValue(new Response('ok', { status: 200 }));
+    const callerAbort = new AbortController();
+    await fetchExternal('https://api.example.com/both', { signal: callerAbort.signal }, 5000);
+    const passedSignal = mockFetch.mock.calls[0][1].signal;
+    expect(passedSignal).toBeInstanceOf(AbortSignal);
+    expect(passedSignal).not.toBe(callerAbort.signal); // composite signal
+  });
+
   it('truncates error body to 500 chars', async () => {
     const longBody = 'x'.repeat(1000);
     mockFetch.mockResolvedValue(new Response(longBody, { status: 500 }));
