@@ -1,0 +1,9 @@
+{
+  "nameFilingFee": 1000,
+  "panTanCharges": 143,
+  "defaultStampDuty": 1500,
+  "dscFeePerDirector": 2000,
+  "serviceFee": 5000,
+  "defaultAuthorizedCapital": 1000000,
+  "defaultDirectorCount": 2
+}
