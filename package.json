@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -32,6 +32,10 @@
     "./fetch": {
       "types": "./dist/src/fetch/index.d.ts",
       "default": "./dist/src/fetch/index.js"
+    },
+    "./incorporation": {
+      "types": "./dist/src/incorporation/index.d.ts",
+      "default": "./dist/src/incorporation/index.js"
     }
   },
   "files": [
