@@ -111,6 +111,38 @@ describe('DistributedLock', () => {
       const result = await lock.acquire('REF123');
       expect(result).toBe(false);
     });
+
+    it('calls logger.warn on Firestore error when logger provided', async () => {
+      const mockLogger = { warn: jest.fn() };
+      const lockWithLogger = new DistributedLock('otp_sessions', { logger: mockLogger });
+
+      mockRunTransaction.mockRejectedValue(new Error('Firestore unavailable'));
+
+      const result = await lockWithLogger.acquire('REF123');
+      expect(result).toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'REF123', err: expect.any(Error) }),
+        'distributed-lock: acquire failed'
+      );
+    });
+
+    it('uses consistent clock source for lockedAt and expiresAt', async () => {
+      mockRunTransaction.mockImplementation(async (fn: Function) => {
+        const transaction = {
+          get: jest.fn().mockResolvedValue({ exists: false }),
+          set: mockSet,
+        };
+        return fn(transaction);
+      });
+
+      await lock.acquire('REF123', { ttlMs: 10000 });
+
+      const setCall = mockSet.mock.calls[0];
+      const lockedAt = setCall[1].lockedAt as { toMillis: () => number };
+      const expiresAt = setCall[1].expiresAt as { toMillis: () => number };
+      // Both derived from same Date.now() call — difference should be exactly ttlMs
+      expect(expiresAt.toMillis() - lockedAt.toMillis()).toBe(10000);
+    });
   });
 
   describe('release', () => {
@@ -125,6 +157,18 @@ describe('DistributedLock', () => {
       mockDelete.mockRejectedValue(new Error('Firestore error'));
 
       await expect(lock.release('REF123')).resolves.toBeUndefined();
+    });
+
+    it('calls logger.warn on release error when logger provided', async () => {
+      const mockLogger = { warn: jest.fn() };
+      const lockWithLogger = new DistributedLock('otp_sessions', { logger: mockLogger });
+      mockDelete.mockRejectedValue(new Error('Firestore error'));
+
+      await lockWithLogger.release('REF123');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'REF123', err: expect.any(Error) }),
+        'distributed-lock: release failed'
+      );
     });
   });
 });

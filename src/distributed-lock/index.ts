@@ -1,5 +1,14 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 
+export interface LockLogger {
+  warn(obj: Record<string, unknown>, msg: string): void;
+}
+
+export interface DistributedLockOptions {
+  /** Optional logger for visibility into lock failures */
+  logger?: LockLogger;
+}
+
 export interface AcquireOptions {
   /** Lock TTL in milliseconds. Default: 15 minutes */
   ttlMs?: number;
@@ -16,10 +25,12 @@ const DEFAULT_TTL_MS = 15 * 60 * 1000;
 export class DistributedLock {
   private readonly firestore: Firestore;
   private readonly collection: string;
+  private readonly logger?: LockLogger;
 
-  constructor(collection: string) {
+  constructor(collection: string, options?: DistributedLockOptions) {
     this.collection = collection;
     this.firestore = new Firestore();
+    this.logger = options?.logger;
   }
 
   /**
@@ -46,14 +57,18 @@ export class DistributedLock {
         }
 
         // Lock is available (doesn't exist or expired) — acquire it
-        const now = Timestamp.now();
-        const expiresAt = Timestamp.fromMillis(Date.now() + ttlMs);
+        // Use single clock source (local time) for both timestamps to avoid
+        // drift between Firestore server time and local machine time.
+        const nowMs = Date.now();
+        const lockedAt = Timestamp.fromMillis(nowMs);
+        const expiresAt = Timestamp.fromMillis(nowMs + ttlMs);
 
-        transaction.set(docRef, { lockedAt: now, expiresAt });
+        transaction.set(docRef, { lockedAt, expiresAt });
         return true;
       });
-    } catch {
+    } catch (err) {
       // Fail-closed: if Firestore errors, treat as unable to acquire
+      this.logger?.warn({ key, err }, 'distributed-lock: acquire failed');
       return false;
     }
   }
@@ -65,8 +80,9 @@ export class DistributedLock {
     try {
       const docRef = this.firestore.collection(this.collection).doc(key);
       await docRef.delete();
-    } catch {
-      // Best-effort: silently ignore release errors
+    } catch (err) {
+      // Best-effort: log but don't throw on release errors
+      this.logger?.warn({ key, err }, 'distributed-lock: release failed');
     }
   }
 }
