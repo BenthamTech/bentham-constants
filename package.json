@@ -36,6 +36,10 @@
     "./incorporation": {
       "types": "./dist/src/incorporation/index.d.ts",
       "default": "./dist/src/incorporation/index.js"
+    },
+    "./distributed-lock": {
+      "types": "./dist/src/distributed-lock/index.d.ts",
+      "default": "./dist/src/distributed-lock/index.js"
     }
   },
   "files": [
@@ -57,6 +61,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@google-cloud/firestore": "7.11.0",
     "pino": "9.6.0"
   },
   "devDependencies": {
