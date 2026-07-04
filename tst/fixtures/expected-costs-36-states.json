@@ -1,150 +1,150 @@
 {
   "ANDHRA PRADESH": {
-    "totalAmount": 12163,
+    "totalAmount": 10163,
     "stampDuty": 2020
   },
   "ARUNACHAL PRADESH": {
-    "totalAmount": 10853,
+    "totalAmount": 8853,
     "stampDuty": 710
   },
   "ASSAM": {
-    "totalAmount": 10668,
+    "totalAmount": 8668,
     "stampDuty": 525
   },
   "BIHAR": {
-    "totalAmount": 12163,
+    "totalAmount": 10163,
     "stampDuty": 2020
   },
   "CHHATTISGARH": {
-    "totalAmount": 12153,
+    "totalAmount": 10153,
     "stampDuty": 2010
   },
   "GOA": {
-    "totalAmount": 12343,
+    "totalAmount": 10343,
     "stampDuty": 2200
   },
   "GUJARAT": {
-    "totalAmount": 15463,
+    "totalAmount": 13463,
     "stampDuty": 5320
   },
   "HARYANA": {
-    "totalAmount": 10338,
+    "totalAmount": 8338,
     "stampDuty": 195
   },
   "HIMACHAL PRADESH": {
-    "totalAmount": 10326,
+    "totalAmount": 8326,
     "stampDuty": 183
   },
   "JHARKHAND": {
-    "totalAmount": 10316,
+    "totalAmount": 8316,
     "stampDuty": 173
   },
   "KARNATAKA": {
-    "totalAmount": 20163,
+    "totalAmount": 18163,
     "stampDuty": 10020
   },
   "KERALA": {
-    "totalAmount": 13168,
+    "totalAmount": 11168,
     "stampDuty": 3025
   },
   "MADHYA PRADESH": {
-    "totalAmount": 17693,
+    "totalAmount": 15693,
     "stampDuty": 7550
   },
   "MAHARASHTRA": {
-    "totalAmount": 12443,
+    "totalAmount": 10443,
     "stampDuty": 2300
   },
   "MANIPUR": {
-    "totalAmount": 10403,
+    "totalAmount": 8403,
     "stampDuty": 260
   },
   "MEGHALAYA": {
-    "totalAmount": 10553,
+    "totalAmount": 8553,
     "stampDuty": 410
   },
   "MIZORAM": {
-    "totalAmount": 10403,
+    "totalAmount": 8403,
     "stampDuty": 260
   },
   "NAGALAND": {
-    "totalAmount": 10403,
+    "totalAmount": 8403,
     "stampDuty": 260
   },
   "ODISHA": {
-    "totalAmount": 10753,
+    "totalAmount": 8753,
     "stampDuty": 610
   },
   "PUNJAB": {
-    "totalAmount": 25168,
+    "totalAmount": 23168,
     "stampDuty": 15025
   },
   "RAJASTHAN": {
-    "totalAmount": 15653,
+    "totalAmount": 13653,
     "stampDuty": 5510
   },
   "TAMIL NADU": {
-    "totalAmount": 10863,
+    "totalAmount": 8863,
     "stampDuty": 720
   },
   "TELANGANA": {
-    "totalAmount": 12163,
+    "totalAmount": 10163,
     "stampDuty": 2020
   },
   "TRIPURA": {
-    "totalAmount": 10403,
+    "totalAmount": 8403,
     "stampDuty": 260
   },
   "UTTAR PRADESH": {
-    "totalAmount": 11153,
+    "totalAmount": 9153,
     "stampDuty": 1010
   },
   "UTTARAKHAND": {
-    "totalAmount": 11153,
+    "totalAmount": 9153,
     "stampDuty": 1010
   },
   "WEST BENGAL": {
-    "totalAmount": 10513,
+    "totalAmount": 8513,
     "stampDuty": 370
   },
   "ANDAMAN AND NICOBAR ISLANDS": {
-    "totalAmount": 10663,
+    "totalAmount": 8663,
     "stampDuty": 520
   },
   "CHANDIGARH": {
-    "totalAmount": 11646,
+    "totalAmount": 9646,
     "stampDuty": 1503
   },
   "DADRA & NAGAR HAVELI": {
-    "totalAmount": 10184,
+    "totalAmount": 8184,
     "stampDuty": 41
   },
   "DAMAN & DIU": {
-    "totalAmount": 12313,
+    "totalAmount": 10313,
     "stampDuty": 2170
   },
   "DELHI": {
-    "totalAmount": 11853,
+    "totalAmount": 9853,
     "stampDuty": 1710
   },
   "JAMMU AND KASHMIR": {
-    "totalAmount": 10603,
+    "totalAmount": 8603,
     "stampDuty": 460
   },
   "LAKSHADWEEP": {
-    "totalAmount": 11668,
+    "totalAmount": 9668,
     "stampDuty": 1525
   },
   "PUDUCHERRY": {
-    "totalAmount": 10653,
+    "totalAmount": 8653,
     "stampDuty": 510
   },
   "SIKKIM": {
-    "totalAmount": 10143,
+    "totalAmount": 8143,
     "stampDuty": 0
   },
   "LADAKH": {
-    "totalAmount": 10143,
+    "totalAmount": 8143,
     "stampDuty": 0
   }
 }
