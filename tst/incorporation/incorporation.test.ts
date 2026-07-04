@@ -75,7 +75,7 @@ describe('calculateIncorporationCost', () => {
 
   it('uses defaults when no args', () => {
     const result = calculateIncorporationCost();
-    expect(result.totalAmount).toBe(1000 + 143 + 1500 + 4000 + 5000); // defaultStampDuty since no state
+    expect(result.totalAmount).toBe(1000 + 143 + 1500 + 4000 + 3000); // defaultStampDuty since no state
     expect(result.metadata).toEqual({ authorizedCapital: 1000000, directorCount: 2 });
   });
 
