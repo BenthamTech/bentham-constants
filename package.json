@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -40,6 +40,10 @@
     "./distributed-lock": {
       "types": "./dist/src/distributed-lock/index.d.ts",
       "default": "./dist/src/distributed-lock/index.js"
+    },
+    "./retry": {
+      "types": "./dist/src/retry/index.d.ts",
+      "default": "./dist/src/retry/index.js"
     }
   },
   "files": [
