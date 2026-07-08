@@ -99,6 +99,8 @@ export interface HmacAuthMiddlewareOptions {
   allowedServices: string[];
   /** Skip verification when NODE_ENV=development (default: true) */
   skipInDev?: boolean;
+  /** Skip verification when NODE_ENV=test (default: true) */
+  skipInTest?: boolean;
   /** Max age of request in seconds (default: 300) */
   maxAgeSeconds?: number;
 }
@@ -108,10 +110,14 @@ export interface HmacAuthMiddlewareOptions {
  * Wraps verifyHmacSignature with request/response handling.
  */
 export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
-  const { secret, allowedServices, skipInDev = true, maxAgeSeconds = 300 } = opts;
+  const { secret, allowedServices, skipInDev = true, skipInTest = true, maxAgeSeconds = 300 } = opts;
 
   return (req: any, res: any, next: () => void) => {
     if (skipInDev && process.env.NODE_ENV === 'development') {
+      return next();
+    }
+
+    if (skipInTest && process.env.NODE_ENV === 'test') {
       return next();
     }
 

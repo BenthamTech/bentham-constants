@@ -111,7 +111,7 @@ describe('hmacAuthMiddleware', () => {
     };
   }
 
-  const middleware = hmacAuthMiddleware({ secret, allowedServices });
+  const middleware = hmacAuthMiddleware({ secret, allowedServices, skipInTest: false });
 
   it('calls next() for valid HMAC', () => {
     const { next, res } = makeMocks();
@@ -160,5 +160,21 @@ describe('hmacAuthMiddleware', () => {
     devMiddleware({ method: 'GET', originalUrl: '/', body: {}, headers: {} }, res, next);
     expect(next).toHaveBeenCalled();
     process.env.NODE_ENV = prev;
+  });
+
+  it('skips verification in test mode by default', () => {
+    const { next, res } = makeMocks();
+    const testMiddleware = hmacAuthMiddleware({ secret, allowedServices });
+    testMiddleware({ method: 'GET', originalUrl: '/', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('enforces verification in test mode when skipInTest is false', () => {
+    const { next, res } = makeMocks();
+    const strictMiddleware = hmacAuthMiddleware({ secret, allowedServices, skipInTest: false });
+    strictMiddleware({ method: 'GET', originalUrl: '/', body: {}, headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
   });
 });
