@@ -7,5 +7,6 @@ export const serviceUrls = {
   trademark: "https://api.trademark.bentham.legal",
   documentValidator: "https://api.document-validator.bentham.legal",
   app: "https://www.bentham.legal",
+  jeremy: "https://jeremy.bentham.legal",
   // TODO: add mca once custom domain is available (asia-south2 does not support domain mappings)
 } as const;
