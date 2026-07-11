@@ -11,29 +11,33 @@ export const TOTAL_PER_CLASS =
 
 /** Calculate Bentham platform fee for N trademark classes */
 export function calculateBenthamFee(numberOfClasses: number): number {
-  return pricingConfig.benthamFeePerClass * numberOfClasses;
+  const classes = Math.max(1, numberOfClasses);
+  return pricingConfig.benthamFeePerClass * classes;
 }
 
 /** Calculate government fee for N trademark classes */
 export function calculateGovernmentFee(numberOfClasses: number): number {
-  return pricingConfig.governmentFeePerClass * numberOfClasses;
+  const classes = Math.max(1, numberOfClasses);
+  return pricingConfig.governmentFeePerClass * classes;
 }
 
 /** Calculate stamp paper fee for N trademark classes */
 export function calculateStampPaperFee(numberOfClasses: number): number {
-  return pricingConfig.stampPaperPerClass * numberOfClasses;
+  const classes = Math.max(1, numberOfClasses);
+  return pricingConfig.stampPaperPerClass * classes;
 }
 
 /** Calculate full cost breakdown for N trademark classes */
 export function calculateTrademarkCost(numberOfClasses: number): TrademarkCostBreakdown {
-  const governmentFee = calculateGovernmentFee(numberOfClasses);
-  const stampPaper = calculateStampPaperFee(numberOfClasses);
-  const benthamFee = calculateBenthamFee(numberOfClasses);
+  const classes = Math.max(1, numberOfClasses);
+  const governmentFee = calculateGovernmentFee(classes);
+  const stampPaper = calculateStampPaperFee(classes);
+  const benthamFee = calculateBenthamFee(classes);
   return {
     governmentFee,
     stampPaper,
     benthamFee,
     total: governmentFee + stampPaper + benthamFee,
-    numberOfClasses,
+    numberOfClasses: classes,
   };
 }
