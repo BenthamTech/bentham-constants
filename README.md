@@ -81,4 +81,39 @@ export default wrapped(async (req, res) => { ... });
 data/           ← JSON constants (language-agnostic)
 src/index.ts    ← constants exports
 src/logger/     ← structured logging module
+src/service-auth/ ← outbound HMAC auth factory
 ```
+
+## Service Auth
+
+Factory for outbound service-to-service HMAC authentication. Wraps `generateHmacHeaders` with env-var-based secret resolution.
+
+### Usage
+
+```ts
+import { createServiceAuth } from '@bentham/constants/service-auth';
+
+// Create auth instances per target service
+const storageAuth = createServiceAuth('BENTHAM_STORAGE_API_HMAC', 'bentham-mca-api');
+const notificationAuth = createServiceAuth('BENTHAM_NOTIFICATION_API_HMAC', 'bentham-mca-api');
+
+// Generate headers for a request
+const headers = storageAuth('POST', '/api/v1/files/signed_url', { url: fileUrl });
+// → { 'x-service-id': 'bentham-mca-api', 'x-timestamp': '...', 'x-signature': '...' }
+
+// Use with fetch
+const response = await fetch(url, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', ...headers },
+  body: JSON.stringify({ url: fileUrl }),
+});
+```
+
+### Parameters
+
+| Param | Description |
+|-------|-------------|
+| `envVarName` | Name of the env var holding the HMAC shared secret |
+| `serviceName` | Calling service identifier (sent as `x-service-id`) |
+
+The returned function accepts `(method, path, body?)` where body can be a string or object (auto-serialized to JSON).
