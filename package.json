@@ -48,6 +48,10 @@
     "./service-auth": {
       "types": "./dist/src/service-auth/index.d.ts",
       "default": "./dist/src/service-auth/index.js"
+    },
+    "./trademark": {
+      "types": "./dist/src/trademark/index.d.ts",
+      "default": "./dist/src/trademark/index.js"
     }
   },
   "files": [
