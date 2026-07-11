@@ -5,7 +5,6 @@ import {
   calculateGovernmentFee,
   calculateStampPaperFee,
   calculateTrademarkCost,
-  pricingConfig,
 } from '../../src/trademark';
 import type { TrademarkCostBreakdown } from '../../src/trademark';
 
@@ -14,10 +13,6 @@ describe('trademarkPricingConfig', () => {
     expect(trademarkPricingConfig.governmentFeePerClass).toBe(4500);
     expect(trademarkPricingConfig.stampPaperPerClass).toBe(120);
     expect(trademarkPricingConfig.benthamFeePerClass).toBe(1500);
-  });
-
-  it('pricingConfig matches trademarkPricingConfig', () => {
-    expect(pricingConfig).toEqual(trademarkPricingConfig);
   });
 });
 
@@ -94,5 +89,19 @@ describe('calculateTrademarkCost', () => {
       const result = calculateTrademarkCost(n);
       expect(result.total).toBe(TOTAL_PER_CLASS * n);
     }
+  });
+});
+
+describe('input clamping', () => {
+  it('clamps zero to 1 class minimum', () => {
+    expect(calculateBenthamFee(0)).toBe(1500);
+    expect(calculateGovernmentFee(0)).toBe(4500);
+    expect(calculateStampPaperFee(0)).toBe(120);
+  });
+
+  it('clamps negative values to 1 class minimum', () => {
+    const result = calculateTrademarkCost(-5);
+    expect(result.numberOfClasses).toBe(1);
+    expect(result.total).toBe(6120);
   });
 });

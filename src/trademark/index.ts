@@ -7,4 +7,3 @@ export {
   calculateTrademarkCost,
 } from './calculator';
 export type { TrademarkPricingConfig, TrademarkCostBreakdown } from './types';
-export { default as pricingConfig } from './pricing-config.json';
