@@ -44,6 +44,10 @@
     "./retry": {
       "types": "./dist/src/retry/index.d.ts",
       "default": "./dist/src/retry/index.js"
+    },
+    "./trademark-pricing": {
+      "types": "./dist/src/trademark-pricing/index.d.ts",
+      "default": "./dist/src/trademark-pricing/index.js"
     }
   },
   "files": [
