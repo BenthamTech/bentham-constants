@@ -1,7 +1,6 @@
 import { createServiceAuth, ServiceAuthFn } from '../service-auth';
 import { fetchExternal } from '../fetch';
 import { getContext } from '../logger/context';
-import { logger } from '../logger/logger';
 
 export interface BaseServiceClientOptions {
   /** Base URL of the target service (e.g. 'https://api.storage.bentham.legal') */
