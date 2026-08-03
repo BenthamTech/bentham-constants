@@ -64,6 +64,10 @@
     "./http": {
       "types": "./dist/src/http/index.d.ts",
       "default": "./dist/src/http/index.js"
+    },
+    "./storage": {
+      "types": "./dist/src/storage/index.d.ts",
+      "default": "./dist/src/storage/index.js"
     }
   },
   "files": [
