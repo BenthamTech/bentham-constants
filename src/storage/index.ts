@@ -1,4 +1,4 @@
-import { BaseServiceClient } from '../http';
+import { BaseServiceClient, ServiceClientError } from '../http';
 import { serviceUrls } from '../config';
 
 export interface StorageClientOptions {
@@ -42,11 +42,18 @@ export class StorageClient extends BaseServiceClient {
    * @returns Signed download URL (valid for ~15 minutes)
    */
   async getSignedUrl(gcsUrl: string): Promise<string> {
-    const res = await this.post<{ data: { url: string } }>(
-      '/api/v1/files/signed_url',
-      { url: gcsUrl },
-    );
-    return res.data.url;
+    try {
+      const res = await this.post<{ data: { url: string } }>(
+        '/api/v1/files/signed_url',
+        { url: gcsUrl },
+      );
+      return res.data.url;
+    } catch (err) {
+      if (err instanceof ServiceClientError) {
+        throw new StorageClientError('getSignedUrl', err.status, err.responseBody);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -78,7 +85,14 @@ export class StorageClient extends BaseServiceClient {
    * @param gcsUrl - The GCS URL of the file to delete
    */
   async deleteFile(gcsUrl: string): Promise<void> {
-    await this.post('/api/v1/files/delete', { url: gcsUrl });
+    try {
+      await this.post('/api/v1/files/delete', { url: gcsUrl });
+    } catch (err) {
+      if (err instanceof ServiceClientError) {
+        throw new StorageClientError('deleteFile', err.status, err.responseBody);
+      }
+      throw err;
+    }
   }
 }
 

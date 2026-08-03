@@ -142,13 +142,13 @@ describe('StorageClient', () => {
       expect(headers['x-request-id']).toBe('trace-storage-123');
     });
 
-    it('throws ServiceClientError on non-2xx response', async () => {
+    it('throws StorageClientError on non-2xx response', async () => {
       mockFetch.mockResolvedValue(
         new Response('{"error":"invalid URL"}', { status: 400 }),
       );
 
       const client = createClient();
-      await expect(client.getSignedUrl('invalid')).rejects.toThrow('Service request failed: 400');
+      await expect(client.getSignedUrl('invalid')).rejects.toThrow('Storage getSignedUrl failed: 400');
     });
   });
 
@@ -266,7 +266,7 @@ describe('StorageClient', () => {
 
       const client = createClient();
       await expect(client.deleteFile('gs://bucket/missing.pdf')).rejects.toThrow(
-        'Service request failed: 404',
+        'Storage deleteFile failed: 404',
       );
     });
   });
