@@ -60,6 +60,10 @@
     "./captcha": {
       "types": "./dist/src/captcha/index.d.ts",
       "default": "./dist/src/captcha/index.js"
+    },
+    "./http": {
+      "types": "./dist/src/http/index.d.ts",
+      "default": "./dist/src/http/index.js"
     }
   },
   "files": [
