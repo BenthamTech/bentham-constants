@@ -56,6 +56,10 @@
     "./pricing": {
       "types": "./dist/src/pricing/index.d.ts",
       "default": "./dist/src/pricing/index.js"
+    },
+    "./captcha": {
+      "types": "./dist/src/captcha/index.d.ts",
+      "default": "./dist/src/captcha/index.js"
     }
   },
   "files": [
