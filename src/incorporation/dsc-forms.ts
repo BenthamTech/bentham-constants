@@ -5,12 +5,10 @@
  */
 
 /**
- * Valid form names for DSC upload/download on MCA portal.
- * Note: "Spice+ Part A" has a dynamic suffix on MCA (e.g. "Spice+ Part A(Name Reservation Valid till: 27-JUL-26)")
- * but we store/display the base name. The mca-api uses startsWith matching for Part A.
+ * Valid form names for DSC upload to MCA portal.
+ * Note: Spice+ Part A is excluded — it does not require DSC upload to MCA.
  */
 export const DSC_FORM_NAMES = [
-  'Spice+ Part A',
   'SPICE + Part B',
   'INC-9',
   'INC-33',
