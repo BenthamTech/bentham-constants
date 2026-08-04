@@ -229,6 +229,45 @@ describe('StorageClient', () => {
 
       expect(result).toBe('gs://bucket/file.pdf');
     });
+
+    it('sets Blob content type from file extension', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
+      );
+
+      const client = createClient();
+      await client.uploadFile(Buffer.from('data'), 'report.pdf', 'docs');
+
+      const body = mockFetch.mock.calls[0][1].body as FormData;
+      const file = body.get('file') as File;
+      expect(file.type).toBe('application/pdf');
+    });
+
+    it('uses explicit contentType over inferred', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
+      );
+
+      const client = createClient();
+      await client.uploadFile(Buffer.from('data'), 'file.bin', 'uploads', 'application/pdf');
+
+      const body = mockFetch.mock.calls[0][1].body as FormData;
+      const file = body.get('file') as File;
+      expect(file.type).toBe('application/pdf');
+    });
+
+    it('falls back to octet-stream for unknown extensions', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.xyz' } }), { status: 200 }),
+      );
+
+      const client = createClient();
+      await client.uploadFile(Buffer.from('data'), 'file.xyz', 'uploads');
+
+      const body = mockFetch.mock.calls[0][1].body as FormData;
+      const file = body.get('file') as File;
+      expect(file.type).toBe('application/octet-stream');
+    });
   });
 
   describe('deleteFile', () => {
