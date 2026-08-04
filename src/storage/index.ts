@@ -122,25 +122,29 @@ export function createStorageClient(serviceName: string): StorageClient {
 }
 
 /**
+ * MIME type lookup table -- hoisted to module scope to avoid re-allocation per call.
+ */
+const MIME_MAP: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  csv: 'text/csv',
+  txt: 'text/plain',
+  json: 'application/json',
+};
+
+/**
  * Infer MIME type from file extension. Falls back to application/octet-stream.
  */
 function inferMimeType(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
-  const mimeMap: Record<string, string> = {
-    pdf: 'application/pdf',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xls: 'application/vnd.ms-excel',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    csv: 'text/csv',
-    txt: 'text/plain',
-    json: 'application/json',
-  };
-  return (ext && mimeMap[ext]) || 'application/octet-stream';
+  return (ext && MIME_MAP[ext]) || 'application/octet-stream';
 }
