@@ -67,6 +67,7 @@ export class StorageClient extends BaseServiceClient {
     const formData = new FormData();
     formData.append('file', new Blob([buffer]), fileName);
     formData.append('folderPath', folderPath);
+    formData.append('fileName', fileName);
 
     const hmacBody = JSON.stringify({ folderPath, fileName });
     const response = await this.requestRaw('POST', '/api/v1/files/store', formData, hmacBody);
