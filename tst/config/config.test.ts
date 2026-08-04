@@ -1,12 +1,15 @@
-import { gcpProject, gcpLocation, serviceUrls } from '../../src/config';
+import { gcpProject, geminiConfig, serviceUrls } from '../../src/config';
 
 describe('config', () => {
   it('exports gcpProject', () => {
     expect(gcpProject).toBe('bentham-463307');
   });
 
-  it('exports gcpLocation', () => {
-    expect(gcpLocation).toBe('us-central1');
+  it('exports geminiConfig with model and location', () => {
+    expect(geminiConfig.model).toBe('gemini-3.1-flash-lite');
+    expect(geminiConfig.location).toBe('global');
+    expect(geminiConfig.embeddingModel).toBe('gemini-embedding-001');
+    expect(geminiConfig.embeddingLocation).toBe('us-central1');
   });
 
   it('exports serviceUrls with all expected keys', () => {

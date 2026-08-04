@@ -1,5 +1,11 @@
 export const gcpProject = "bentham-463307";
-export const gcpLocation = "us-central1";
+
+export const geminiConfig = {
+  model: "gemini-3.1-flash-lite",
+  location: "global",
+  embeddingModel: "gemini-embedding-001",
+  embeddingLocation: "us-central1",
+} as const;
 
 export const serviceUrls = {
   notification: "https://api.notification.bentham.legal",
