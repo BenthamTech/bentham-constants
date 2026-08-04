@@ -61,11 +61,13 @@ export class StorageClient extends BaseServiceClient {
    * @param buffer - File contents as a Buffer or Uint8Array
    * @param fileName - Filename to store as (e.g. 'document.pdf')
    * @param folderPath - GCS folder path (e.g. 'applications/123/documents')
+   * @param contentType - MIME type (e.g. 'application/pdf'). If omitted, inferred from fileName extension.
    * @returns The stored file's GCS URL
    */
-  async uploadFile(buffer: Buffer | Uint8Array, fileName: string, folderPath: string): Promise<string> {
+  async uploadFile(buffer: Buffer | Uint8Array, fileName: string, folderPath: string, contentType?: string): Promise<string> {
+    const mime = contentType || inferMimeType(fileName);
     const formData = new FormData();
-    formData.append('file', new Blob([buffer]), fileName);
+    formData.append('file', new Blob([buffer], { type: mime }), fileName);
     formData.append('folderPath', folderPath);
     formData.append('fileName', fileName);
 
@@ -117,4 +119,32 @@ export class StorageClientError extends Error {
  */
 export function createStorageClient(serviceName: string): StorageClient {
   return new StorageClient({ serviceName });
+}
+
+/**
+ * MIME type lookup table -- hoisted to module scope to avoid re-allocation per call.
+ */
+const MIME_MAP: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  csv: 'text/csv',
+  txt: 'text/plain',
+  json: 'application/json',
+};
+
+/**
+ * Infer MIME type from file extension. Falls back to application/octet-stream.
+ */
+function inferMimeType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  return (ext && MIME_MAP[ext]) || 'application/octet-stream';
 }
