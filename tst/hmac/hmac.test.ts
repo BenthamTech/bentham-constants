@@ -204,7 +204,7 @@ describe('hmacAuthMiddleware', () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it('matches skipPaths as prefix (not exact)', () => {
+  it('matches skipPaths on path boundaries (subpath allowed)', () => {
     const { next, res } = makeMocks();
     const skipMiddleware = hmacAuthMiddleware({
       secret,
@@ -213,6 +213,31 @@ describe('hmacAuthMiddleware', () => {
       skipPaths: ['/health'],
     });
     skipMiddleware({ method: 'GET', originalUrl: '/health/check', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('does not skip paths that share a prefix but lack a boundary', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/health'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/healthadmin', body: {}, headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('skips exact path match in skipPaths', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/health'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/health', body: {}, headers: {} }, res, next);
     expect(next).toHaveBeenCalled();
   });
 });

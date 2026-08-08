@@ -123,7 +123,7 @@ export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
       return next();
     }
 
-    if (skipPaths.length > 0 && skipPaths.some((p) => req.originalUrl.startsWith(p))) {
+    if (skipPaths.length > 0 && skipPaths.some((p) => req.originalUrl === p || req.originalUrl.startsWith(p + '/'))) {
       return next();
     }
 
