@@ -43,3 +43,19 @@ export function notFound() {
     });
   };
 }
+
+const TRUTHY = new Set(["true", "1", "yes"]);
+
+/**
+ * Express middleware: when X-Validate-Only header is truthy, short-circuits
+ * after validation passes with { success: true, valid: true }.
+ * Place AFTER validation middleware, BEFORE the controller.
+ */
+export function validateOnlyGuard(req: any, res: any, next: () => void): void {
+  const h = req.get("X-Validate-Only");
+  if (h && TRUTHY.has(String(h).toLowerCase())) {
+    res.status(200).json({ success: true, valid: true });
+    return;
+  }
+  next();
+}
