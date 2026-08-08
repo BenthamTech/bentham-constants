@@ -103,6 +103,8 @@ export interface HmacAuthMiddlewareOptions {
   skipInTest?: boolean;
   /** Max age of request in seconds (default: 300) */
   maxAgeSeconds?: number;
+  /** Path prefixes to skip HMAC verification for (e.g. public routes) */
+  skipPaths?: string[];
 }
 
 /**
@@ -110,7 +112,7 @@ export interface HmacAuthMiddlewareOptions {
  * Wraps verifyHmacSignature with request/response handling.
  */
 export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
-  const { secret, allowedServices, skipInDev = true, skipInTest = true, maxAgeSeconds = 300 } = opts;
+  const { secret, allowedServices, skipInDev = true, skipInTest = true, maxAgeSeconds = 300, skipPaths = [] } = opts;
 
   return (req: any, res: any, next: () => void) => {
     if (skipInDev && process.env.NODE_ENV === 'development') {
@@ -118,6 +120,10 @@ export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
     }
 
     if (skipInTest && process.env.NODE_ENV === 'test') {
+      return next();
+    }
+
+    if (skipPaths.length > 0 && skipPaths.some((p) => req.originalUrl.startsWith(p))) {
       return next();
     }
 

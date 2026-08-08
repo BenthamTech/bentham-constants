@@ -177,4 +177,42 @@ describe('hmacAuthMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
+
+  it('skips verification for paths in skipPaths', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/public', '/health'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/public/data', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('enforces verification for paths not in skipPaths', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/public'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/private', body: {}, headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('matches skipPaths as prefix (not exact)', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/health'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/health/check', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+  });
 });

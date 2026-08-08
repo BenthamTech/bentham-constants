@@ -2,3 +2,4 @@ node_modules/
 dist/
 .DS_Store
 .kiro/
+.kiro/hooks/track-with-agent.kiro.hook
