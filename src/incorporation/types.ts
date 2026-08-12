@@ -1,3 +1,5 @@
+import { CompanyType } from './company-types';
+
 export interface FeeItem {
   id: string;
   label: string;
@@ -6,6 +8,7 @@ export interface FeeItem {
 }
 
 export interface FeeBreakdown {
+  companyType: CompanyType;
   items: FeeItem[];
   totalAmount: number;
   metadata?: { authorizedCapital: number; directorCount: number };
