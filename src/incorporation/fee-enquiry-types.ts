@@ -7,6 +7,10 @@ export type FeeEnquiryEntityType = 'Company' | 'LLP';
  * Response shape from POST /api/v1/mca/company/fee.
  * Guaranteed fields (normalFee, additionalFee, total) are always present.
  * Company-specific fields are optional — only returned for Company enquiries.
+ *
+ * BREAKING: Company-specific fields changed from required to optional.
+ * Consumers accessing MoARegFee, AoARegFee, etc. must add null checks.
+ * See consumer PRs linked in this PR description.
  */
 export interface FeeEnquiryData {
   normalFee: string;
@@ -28,7 +32,7 @@ export interface FeeEnquiryData {
  */
 export interface CompanyFeeEnquiryInput {
   enquireFeeFor: 'Company';
-  state: string;
+  state: McaFeeEnquiryState;
   hasAuthorisedCapital: boolean;
   authorisedCapital?: number;
   isOpcSmallCompany?: boolean;
