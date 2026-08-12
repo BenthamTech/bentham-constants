@@ -1,6 +1,7 @@
 import stampDutyConfig from './stamp-duty-config.json';
 import pricingConfig from './pricing-config.json';
 import llpPricingConfig from './llp-pricing-config.json';
+import { CompanyType } from './company-types';
 import type { AoaFormula, FeeBreakdown, FeeItem, StateStampDutyEntry } from './types';
 
 const states = stampDutyConfig as Record<string, StateStampDutyEntry>;
@@ -66,7 +67,7 @@ export function calculateIncorporationCost(
   ];
 
   return {
-    companyType: 'PRIVATE_LIMITED',
+    companyType: CompanyType.PRIVATE_LIMITED,
     items,
     totalAmount: governmentFee + dscFee + pricingConfig.serviceFee,
     metadata: { authorizedCapital, directorCount: validDirectors },
@@ -105,7 +106,7 @@ export function calculateLlpCost(
   ];
 
   return {
-    companyType: 'LLP',
+    companyType: CompanyType.LLP,
     items,
     totalAmount: governmentFee + dscFee + llpPricingConfig.serviceFee,
     metadata: { authorizedCapital: contribution, directorCount: validPartners },
