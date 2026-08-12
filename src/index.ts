@@ -8,6 +8,7 @@ import documentKeys from '../data/incorporation/document-keys.json';
 import directorDesignations from '../data/incorporation/director-designations.json';
 import mcaDefaults from '../data/incorporation/mca-defaults.json';
 import feeEnquiryOptions from '../data/incorporation/fee-enquiry-options.json';
+import type { FeeEnquiryEntityType } from './incorporation/fee-enquiry-types';
 
 // --- Trademark ---
 import trademarkStatuses from '../data/trademark/trademark-statuses.json';
@@ -25,7 +26,7 @@ export const DOCUMENT_KEYS = documentKeys;
 export type DirectorDesignation = keyof typeof directorDesignations;
 export const DIRECTOR_DESIGNATIONS = directorDesignations as Record<string, string>;
 export const MCA_DEFAULTS = mcaDefaults;
-export type FeeEnquiryOptions = Record<string, Record<string, string[]>>;
+export type FeeEnquiryOptions = Record<FeeEnquiryEntityType, Record<string, string[]>>;
 export const FEE_ENQUIRY_OPTIONS: FeeEnquiryOptions = feeEnquiryOptions;
 
 // Trademark

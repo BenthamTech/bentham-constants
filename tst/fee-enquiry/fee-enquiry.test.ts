@@ -5,6 +5,7 @@ import type {
   CompanyFeeEnquiryInput,
   LlpFeeEnquiryInput,
   FeeEnquiryInput,
+  McaFeeEnquiryState,
 } from '../../src/incorporation';
 
 describe('FEE_ENQUIRY_OPTIONS', () => {
