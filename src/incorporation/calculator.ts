@@ -66,6 +66,7 @@ export function calculateIncorporationCost(
   ];
 
   return {
+    companyType: 'PRIVATE_LIMITED',
     items,
     totalAmount: governmentFee + dscFee + pricingConfig.serviceFee,
     metadata: { authorizedCapital, directorCount: validDirectors },
@@ -104,6 +105,7 @@ export function calculateLlpCost(
   ];
 
   return {
+    companyType: 'LLP',
     items,
     totalAmount: governmentFee + dscFee + llpPricingConfig.serviceFee,
     metadata: { authorizedCapital: contribution, directorCount: validPartners },
