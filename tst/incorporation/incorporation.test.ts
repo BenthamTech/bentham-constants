@@ -1,4 +1,4 @@
-import { calculateStampDuty, calculateIncorporationCost, getAvailableStates, toDisplayName } from '../../src/incorporation';
+import { calculateStampDuty, calculateIncorporationCost, calculateLlpStampDuty, calculateLlpCost, getAvailableStates, toDisplayName } from '../../src/incorporation';
 import expectedCosts from '../fixtures/expected-costs-36-states.json';
 
 describe('calculateStampDuty', () => {
@@ -117,5 +117,85 @@ describe('toDisplayName', () => {
     expect(toDisplayName('ANDHRA PRADESH')).toBe('Andhra Pradesh');
     expect(toDisplayName('JAMMU AND KASHMIR')).toBe('Jammu And Kashmir');
     expect(toDisplayName('DADRA & NAGAR HAVELI')).toBe('Dadra & Nagar Haveli');
+  });
+});
+
+describe('calculateLlpStampDuty', () => {
+  it('returns ₹500 for contribution up to ₹1,00,000', () => {
+    expect(calculateLlpStampDuty(50000)).toBe(500);
+    expect(calculateLlpStampDuty(100000)).toBe(500);
+  });
+
+  it('returns ₹2,000 for contribution ₹1L to ₹5L', () => {
+    expect(calculateLlpStampDuty(100001)).toBe(2000);
+    expect(calculateLlpStampDuty(300000)).toBe(2000);
+    expect(calculateLlpStampDuty(500000)).toBe(2000);
+  });
+
+  it('returns ₹4,000 for contribution ₹5L to ₹10L', () => {
+    expect(calculateLlpStampDuty(500001)).toBe(4000);
+    expect(calculateLlpStampDuty(750000)).toBe(4000);
+    expect(calculateLlpStampDuty(1000000)).toBe(4000);
+  });
+
+  it('returns ₹5,000 for contribution above ₹10L', () => {
+    expect(calculateLlpStampDuty(1000001)).toBe(5000);
+    expect(calculateLlpStampDuty(5000000)).toBe(5000);
+    expect(calculateLlpStampDuty(100000000)).toBe(5000);
+  });
+});
+
+describe('calculateLlpCost', () => {
+  it('returns correct structure', () => {
+    const result = calculateLlpCost();
+    expect(result.items).toHaveLength(3);
+    expect(result.items[0]!.id).toBe('government');
+    expect(result.items[0]!.children).toHaveLength(3);
+    expect(result.items[1]!.id).toBe('dsc');
+    expect(result.items[2]!.id).toBe('service');
+    expect(result.metadata).toEqual({ authorizedCapital: 100000, directorCount: 2 });
+  });
+
+  it('uses defaults when no args (2 partners, ₹1L contribution)', () => {
+    const result = calculateLlpCost();
+    // govt: 200 + 143 + 500 = 843
+    // dsc: 2250 * 2 = 4500
+    // service: 10000
+    expect(result.totalAmount).toBe(843 + 4500 + 10000);
+  });
+
+  it('scales DSC fee with partner count', () => {
+    const r2 = calculateLlpCost(2);
+    const r3 = calculateLlpCost(3);
+    expect(r3.totalAmount - r2.totalAmount).toBe(2250);
+  });
+
+  it('stamp duty changes with contribution amount', () => {
+    const r1 = calculateLlpCost(2, 100000);   // stamp: 500
+    const r2 = calculateLlpCost(2, 500000);   // stamp: 2000
+    const r3 = calculateLlpCost(2, 1000000);  // stamp: 4000
+    const r4 = calculateLlpCost(2, 5000000);  // stamp: 5000
+
+    expect(r1.items[0]!.children![2]!.amount).toBe(500);
+    expect(r2.items[0]!.children![2]!.amount).toBe(2000);
+    expect(r3.items[0]!.children![2]!.amount).toBe(4000);
+    expect(r4.items[0]!.children![2]!.amount).toBe(5000);
+  });
+
+  it('clamps partnerCount to [1, 100]', () => {
+    const r1 = calculateLlpCost(0);
+    expect(r1.metadata!.directorCount).toBe(1);
+    const r2 = calculateLlpCost(200);
+    expect(r2.metadata!.directorCount).toBe(100);
+  });
+
+  it('name filing fee is ₹200 (not ₹1000 like company)', () => {
+    const result = calculateLlpCost();
+    expect(result.items[0]!.children![0]!.amount).toBe(200);
+  });
+
+  it('service fee is ₹10,000', () => {
+    const result = calculateLlpCost();
+    expect(result.items[2]!.amount).toBe(10000);
   });
 });

@@ -1,0 +1,18 @@
+{
+  "nameFilingFee": 200,
+  "panTanCharges": 143,
+  "dscFeePerDirector": 2250,
+  "serviceFee": 10000,
+  "defaultContribution": 100000,
+  "defaultPartnerCount": 2,
+  "stampDuty": {
+    "type": "tiered",
+    "tiers": [
+      { "maxCapital": 100000, "amount": 500 },
+      { "maxCapital": 500000, "amount": 2000 },
+      { "maxCapital": 1000000, "amount": 4000 },
+      { "maxCapital": 999999999, "amount": 5000 }
+    ],
+    "fallbackRate": 0
+  }
+}
