@@ -137,6 +137,12 @@ describe('embed', () => {
     );
   });
 
+  it('throws on empty text input', async () => {
+    await expect(embed('')).rejects.toThrow('Cannot embed empty text');
+    await expect(embed('   ')).rejects.toThrow('Cannot embed empty text');
+    expect(mockEmbedContent).not.toHaveBeenCalled();
+  });
+
   it('uses custom modelId for embeddings', async () => {
     mockEmbedContent.mockResolvedValue({
       embeddings: [{ values: [0.5] }],

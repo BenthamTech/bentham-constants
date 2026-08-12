@@ -87,6 +87,10 @@ export async function embed(
   text: string,
   options: Pick<GeminiOptions, "modelId"> = {},
 ): Promise<number[]> {
+  if (!text.trim()) {
+    throw new Error("Cannot embed empty text");
+  }
+
   const client = getClient();
   const modelId = options.modelId || geminiConfig.embeddingModel;
 
