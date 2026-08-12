@@ -65,6 +65,7 @@ describe('calculateStampDuty', () => {
 describe('calculateIncorporationCost', () => {
   it('returns correct structure', () => {
     const result = calculateIncorporationCost('TELANGANA');
+    expect(result.companyType).toBe('PRIVATE_LIMITED');
     expect(result.items).toHaveLength(3);
     expect(result.items[0]!.id).toBe('government');
     expect(result.items[0]!.children).toHaveLength(3);
@@ -148,6 +149,7 @@ describe('calculateLlpStampDuty', () => {
 describe('calculateLlpCost', () => {
   it('returns correct structure', () => {
     const result = calculateLlpCost();
+    expect(result.companyType).toBe('LLP');
     expect(result.items).toHaveLength(3);
     expect(result.items[0]!.id).toBe('government');
     expect(result.items[0]!.children).toHaveLength(3);
