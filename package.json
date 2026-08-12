@@ -76,6 +76,10 @@
     "./gemini": {
       "types": "./dist/src/gemini/index.d.ts",
       "default": "./dist/src/gemini/index.js"
+    },
+    "./validation": {
+      "types": "./dist/src/validation/index.d.ts",
+      "default": "./dist/src/validation/index.js"
     }
   },
   "files": [
