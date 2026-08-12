@@ -1,5 +1,6 @@
 import stampDutyConfig from './stamp-duty-config.json';
 import pricingConfig from './pricing-config.json';
+import llpPricingConfig from './llp-pricing-config.json';
 import type { AoaFormula, FeeBreakdown, FeeItem, StateStampDutyEntry } from './types';
 
 const states = stampDutyConfig as Record<string, StateStampDutyEntry>;
@@ -73,6 +74,40 @@ export function calculateIncorporationCost(
 
 export function getAvailableStates(): string[] {
   return Object.keys(states);
+}
+
+export function calculateLlpStampDuty(contribution: number): number {
+  const formula = llpPricingConfig.stampDuty as AoaFormula;
+  return calculateAoa(formula, contribution);
+}
+
+export function calculateLlpCost(
+  partnerCount = llpPricingConfig.defaultPartnerCount,
+  contribution = llpPricingConfig.defaultContribution
+): FeeBreakdown {
+  const validPartners = Math.min(Math.max(1, partnerCount), 100);
+  const stampDuty = calculateLlpStampDuty(contribution);
+
+  const governmentChildren: FeeItem[] = [
+    { id: 'name-filing', label: 'Name Filing Fee (RUN-LLP)', amount: llpPricingConfig.nameFilingFee },
+    { id: 'pan-tan', label: 'PAN + TAN Fee', amount: llpPricingConfig.panTanCharges },
+    { id: 'stamp-duty', label: 'Stamp Duty (contribution-based)', amount: stampDuty },
+  ];
+  const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
+
+  const dscFee = llpPricingConfig.dscFeePerDirector * validPartners;
+
+  const items: FeeItem[] = [
+    { id: 'government', label: 'Government Fee', amount: governmentFee, children: governmentChildren },
+    { id: 'dsc', label: `DSC Fee (₹${llpPricingConfig.dscFeePerDirector.toLocaleString('en-IN')} × ${validPartners} partner${validPartners > 1 ? 's' : ''})`, amount: dscFee },
+    { id: 'service', label: 'Service Fee (incl. CA/CS)', amount: llpPricingConfig.serviceFee },
+  ];
+
+  return {
+    items,
+    totalAmount: governmentFee + dscFee + llpPricingConfig.serviceFee,
+    metadata: { authorizedCapital: contribution, directorCount: validPartners },
+  };
 }
 
 export function toDisplayName(state: string): string {
