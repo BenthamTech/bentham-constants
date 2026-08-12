@@ -1,19 +1,54 @@
 /**
- * Response shape from POST /api/v1/mca/company/fee
- * All values are strings as returned by the MCA portal DOM parsing.
+ * Entity types supported by the fee enquiry form.
+ */
+export type FeeEnquiryEntityType = 'Company' | 'LLP';
+
+/**
+ * Response shape from POST /api/v1/mca/company/fee.
+ * Guaranteed fields (normalFee, additionalFee, total) are always present.
+ * Company-specific fields are optional — only returned for Company enquiries.
  */
 export interface FeeEnquiryData {
   normalFee: string;
   additionalFee: string;
-  MoARegFee: string;
-  AoARegFee: string;
-  panTanFees: string;
   total: string;
-  stampDutyMoA: string;
-  stampDutyAoA: string;
-  stampDutySpicePlusPartB: string;
-  stampDuty: string;
+  // Company-specific (present only for Company enquiries)
+  MoARegFee?: string;
+  AoARegFee?: string;
+  panTanFees?: string;
+  stampDutyMoA?: string;
+  stampDutyAoA?: string;
+  stampDutySpicePlusPartB?: string;
+  stampDuty?: string;
 }
+
+/**
+ * Input fields for Company fee enquiry.
+ * Internal MCA fields (natureOfService, subService) are hardcoded in the handler.
+ */
+export interface CompanyFeeEnquiryInput {
+  enquireFeeFor: 'Company';
+  state: string;
+  hasAuthorisedCapital: boolean;
+  authorisedCapital?: number;
+  isOpcSmallCompany?: boolean;
+  isSection8Company?: boolean;
+}
+
+/**
+ * Input fields for LLP fee enquiry.
+ * Internal MCA fields (natureOfService, subService, conversionFromCompToLLP)
+ * are hardcoded in the handler — only contribution varies per query.
+ */
+export interface LlpFeeEnquiryInput {
+  enquireFeeFor: 'LLP';
+  contribution: number;
+}
+
+/**
+ * Discriminated union of fee enquiry inputs.
+ */
+export type FeeEnquiryInput = CompanyFeeEnquiryInput | LlpFeeEnquiryInput;
 
 /**
  * States accepted by the MCA fee enquiry portal.
