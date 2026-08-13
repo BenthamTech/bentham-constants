@@ -49,7 +49,8 @@ export function validateRequest(schema: ZodSchema, options?: ValidateRequestOpti
  * sending a response. Useful for Pub/Sub routes where downstream middleware
  * needs to handle errors before acknowledging.
  */
-export function validateRequestDeferred(schema: ZodSchema, source: 'body' | 'query' | 'params' = 'body') {
+export function validateRequestDeferred(schema: ZodSchema, options?: Pick<ValidateRequestOptions, 'source'>) {
+  const { source = 'body' } = options || {};
   return (req: any, res: any, next: () => void) => {
     const result = schema.safeParse(req[source]);
     if (!result.success) {

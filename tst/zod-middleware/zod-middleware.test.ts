@@ -189,7 +189,7 @@ describe('validateRequestDeferred', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    validateRequestDeferred(querySchema, 'query')(req, res, next);
+    validateRequestDeferred(querySchema, { source: 'query' })(req, res, next);
 
     expect(next).toHaveBeenCalled();
     expect(req._validationErrors).toBeDefined();
