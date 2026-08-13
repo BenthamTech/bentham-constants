@@ -93,7 +93,7 @@ export function calculateLlpCost(
   const governmentChildren: FeeItem[] = [
     { id: 'name-filing', label: 'Name Filing Fee (RUN-LLP)', amount: llpPricingConfig.nameFilingFee },
     { id: 'pan-tan', label: 'PAN + TAN Fee', amount: llpPricingConfig.panTanCharges },
-    { id: 'stamp-duty', label: 'Stamp Duty (contribution-based)', amount: stampDuty },
+    { id: 'stamp-duty', label: `Stamp Duty (₹${contribution.toLocaleString('en-IN')} contribution)`, amount: stampDuty },
   ];
   const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
 
