@@ -84,6 +84,10 @@
     "./zod-middleware": {
       "types": "./dist/src/zod-middleware/index.d.ts",
       "default": "./dist/src/zod-middleware/index.js"
+    },
+    "./webhook": {
+      "types": "./dist/src/webhook/index.d.ts",
+      "default": "./dist/src/webhook/index.js"
     }
   },
   "files": [
