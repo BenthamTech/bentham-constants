@@ -47,16 +47,28 @@ export class WebhookCallbackClient {
    */
   async send(path: string, payload: unknown): Promise<void> {
     const url = `${this.baseUrl}${path}`;
-    const body = JSON.stringify(payload);
-    const hmacHeaders = generateHmacHeaders('POST', path, body, this.hmacSecret, this.serviceName);
-    const { requestId } = getContext();
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...hmacHeaders,
-    };
-    if (requestId) {
-      headers['x-request-id'] = requestId;
+    let body: string;
+    let headers: Record<string, string>;
+    try {
+      body = JSON.stringify(payload);
+      const hmacHeaders = generateHmacHeaders('POST', path, body, this.hmacSecret, this.serviceName);
+      const { requestId } = getContext();
+
+      headers = {
+        'Content-Type': 'application/json',
+        ...hmacHeaders,
+      };
+      if (requestId) {
+        headers['x-request-id'] = requestId;
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(
+        { path, error: message, service: this.serviceName },
+        `Webhook ${path} setup failed: ${message}`,
+      );
+      return;
     }
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
