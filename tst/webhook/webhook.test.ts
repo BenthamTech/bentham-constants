@@ -167,6 +167,35 @@ describe('WebhookCallbackClient', () => {
         expect.any(Object),
       );
     });
+
+    it('logs error and returns early when payload is not serializable', async () => {
+      const circular: any = {};
+      circular.self = circular;
+      const client = createClient();
+
+      await client.send('/api/webhooks/test', circular);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/api/webhooks/test', service: 'test-service' }),
+        expect.stringContaining('setup failed'),
+      );
+    });
+
+    it('logs error and returns early when getContext throws', async () => {
+      (getContext as jest.Mock).mockImplementation(() => {
+        throw new Error('context unavailable');
+      });
+      const client = createClient();
+
+      await client.send('/api/webhooks/test', { id: '123' });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/api/webhooks/test', error: 'context unavailable' }),
+        expect.stringContaining('setup failed'),
+      );
+    });
   });
 
   describe('fireAndForget', () => {
