@@ -240,4 +240,43 @@ describe('hmacAuthMiddleware', () => {
     skipMiddleware({ method: 'GET', originalUrl: '/health', body: {}, headers: {} }, res, next);
     expect(next).toHaveBeenCalled();
   });
+
+  it('skips paths with query parameters when path matches skipPaths', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/mca/din/associations'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/mca/din/associations?din=12345678', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('skips subpath with query parameters when parent matches skipPaths', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/public'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/public/data?page=1&limit=10', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('does not skip paths that share prefix but lack boundary even with query params', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/health'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/healthadmin?check=true', body: {}, headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
 });
