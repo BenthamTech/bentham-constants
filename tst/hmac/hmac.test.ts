@@ -240,4 +240,30 @@ describe('hmacAuthMiddleware', () => {
     skipMiddleware({ method: 'GET', originalUrl: '/health', body: {}, headers: {} }, res, next);
     expect(next).toHaveBeenCalled();
   });
+
+  it('skips paths in skipPaths when URL includes query params', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/mca/din/associations'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/mca/din/associations?din=12345678', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('skips subpath in skipPaths when URL includes query params', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/public'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/public/data?page=1&limit=10', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
 });
