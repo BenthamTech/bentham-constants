@@ -216,6 +216,32 @@ describe('hmacAuthMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
+  it('skips verification for skipPaths when URL has query params', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/mca/din/associations'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/mca/din/associations?din=12345678', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('skips verification for skipPaths subpath when URL has query params', () => {
+    const { next, res } = makeMocks();
+    const skipMiddleware = hmacAuthMiddleware({
+      secret,
+      allowedServices,
+      skipInTest: false,
+      skipPaths: ['/api/v1/public'],
+    });
+    skipMiddleware({ method: 'GET', originalUrl: '/api/v1/public/data?page=1&limit=10', body: {}, headers: {} }, res, next);
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
   it('does not skip paths that share a prefix but lack a boundary', () => {
     const { next, res } = makeMocks();
     const skipMiddleware = hmacAuthMiddleware({
