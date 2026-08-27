@@ -123,8 +123,11 @@ export function hmacAuthMiddleware(opts: HmacAuthMiddlewareOptions) {
       return next();
     }
 
-    if (skipPaths.length > 0 && skipPaths.some((p) => req.originalUrl === p || req.originalUrl.startsWith(p + '/'))) {
-      return next();
+    if (skipPaths.length > 0) {
+      const urlPath = req.originalUrl.split('?')[0];
+      if (skipPaths.some((p) => urlPath === p || urlPath.startsWith(p + '/'))) {
+        return next();
+      }
     }
 
     const result = verifyHmacSignature(
