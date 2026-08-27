@@ -308,8 +308,10 @@ export async function withTempDownloads<T>(
   const downloadedPaths: string[] = [];
 
   try {
-    // Download all files in parallel
-    const results = await Promise.all(
+    // Use allSettled so all downloads resolve/reject before cleanup —
+    // prevents orphaned temp files from in-flight downloads completing after
+    // finally runs (race condition with Promise.all on partial failure)
+    const settled = await Promise.allSettled(
       entries.map(async (entry) => {
         const localPath = await client.downloadToFile(entry.url, opts);
         downloadedPaths.push(localPath);
@@ -317,8 +319,17 @@ export async function withTempDownloads<T>(
       }),
     );
 
-    for (const { key, localPath } of results) {
-      paths[key] = localPath;
+    const failed = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    if (failed.length > 0) {
+      throw failed[0].reason;
+    }
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        paths[result.value.key] = result.value.localPath;
+      }
     }
 
     return await callback(paths);
