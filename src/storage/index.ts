@@ -1,5 +1,13 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import * as crypto from 'node:crypto';
+
 import { BaseServiceClient, ServiceClientError } from '../http';
 import { serviceUrls } from '../config';
+import { fetchExternal } from '../fetch';
 
 export interface StorageClientOptions {
   /** Calling service name (sent as x-service-id in HMAC headers) */
@@ -10,6 +18,15 @@ export interface StorageClientOptions {
   secretEnvVar?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
+}
+
+export interface DownloadOptions {
+  /** Request timeout in milliseconds (default: 60000) */
+  timeoutMs?: number;
+  /** Validate file content after download (default: true) */
+  validate?: boolean;
+  /** Custom temp directory (default: os.tmpdir()) */
+  tempDir?: string;
 }
 
 /**
@@ -97,6 +114,47 @@ export class StorageClient extends BaseServiceClient {
       throw err;
     }
   }
+
+  /**
+   * Download a GCS file to a local temp file using streaming.
+   * Gets a signed URL via the storage API, then downloads the file content.
+   *
+   * @param gcsUrl - The GCS URL (gs:// or https://storage.googleapis.com/...) stored in the database
+   * @param opts - Download options (timeout, validation, temp directory)
+   * @returns Absolute path to the downloaded temp file
+   */
+  async downloadToFile(gcsUrl: string, opts?: DownloadOptions): Promise<string> {
+    const signedUrl = await this.getSignedUrl(gcsUrl);
+    const ext = extractExtension(gcsUrl);
+    const tempDir = opts?.tempDir ?? os.tmpdir();
+    const tempPath = path.join(tempDir, `bentham_dl_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`);
+
+    const timeoutMs = opts?.timeoutMs ?? 60_000;
+    const response = await fetchExternal(signedUrl, { redirect: 'follow' }, timeoutMs);
+
+    if (!response.ok) {
+      throw new StorageClientError('download', response.status, `HTTP ${response.status} downloading file`);
+    }
+
+    if (!response.body) {
+      throw new StorageClientError('download', 0, 'Response body is null');
+    }
+
+    const fileStream = fs.createWriteStream(tempPath);
+    try {
+      await pipeline(Readable.fromWeb(response.body as any), fileStream);
+    } catch (err) {
+      // Clean up partial file on stream failure
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      throw err;
+    }
+
+    if (opts?.validate !== false) {
+      validateFileContent(tempPath, ext);
+    }
+
+    return tempPath;
+  }
 }
 
 /**
@@ -147,4 +205,137 @@ const MIME_MAP: Record<string, string> = {
 function inferMimeType(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
   return (ext && MIME_MAP[ext]) || 'application/octet-stream';
+}
+
+/**
+ * Extract file extension from a GCS URL or path.
+ * Falls back to '.pdf' when no extension can be determined.
+ */
+function extractExtension(gcsUrl: string): string {
+  try {
+    const pathname = new URL(gcsUrl).pathname;
+    const ext = path.extname(pathname);
+    return ext || '.pdf';
+  } catch {
+    const ext = path.extname(gcsUrl);
+    return ext || '.pdf';
+  }
+}
+
+/**
+ * Validate downloaded file content. Rejects empty files, HTML error pages,
+ * and invalid PDF headers.
+ * @throws StorageClientError if validation fails
+ */
+export function validateFileContent(filePath: string, ext: string): void {
+  const stat = fs.statSync(filePath);
+
+  // Reject empty files
+  if (stat.size === 0) {
+    fs.unlinkSync(filePath);
+    throw new StorageClientError('download', 0, 'Downloaded file is empty (0 bytes)');
+  }
+
+  // Read first 16 bytes for magic byte checks
+  const fd = fs.openSync(filePath, 'r');
+  const header = Buffer.alloc(16);
+  fs.readSync(fd, header, 0, 16, 0);
+  fs.closeSync(fd);
+
+  const headerStr = header.toString('utf8', 0, Math.min(16, stat.size));
+
+  // Reject HTML error pages (GCS returns HTML for 4xx/5xx when accessed as browser)
+  if (headerStr.startsWith('<!DOCTYPE') || headerStr.startsWith('<html') || headerStr.startsWith('<HTML')) {
+    fs.unlinkSync(filePath);
+    throw new StorageClientError('download', 0, 'Downloaded file is an HTML error page');
+  }
+
+  // Validate PDF magic bytes when extension is .pdf
+  if (ext.toLowerCase() === '.pdf' && !headerStr.startsWith('%PDF')) {
+    fs.unlinkSync(filePath);
+    throw new StorageClientError('download', 0, 'Downloaded file has invalid PDF header');
+  }
+}
+
+/**
+ * Download a GCS file to a temp path, execute a callback with the local path,
+ * and clean up the temp file in `finally` regardless of success/failure.
+ *
+ * @example
+ * ```ts
+ * const result = await withTempDownload(storageClient, 'gs://bucket/doc.pdf', async (localPath) => {
+ *   // use localPath...
+ *   return processedData;
+ * });
+ * ```
+ */
+export async function withTempDownload<T>(
+  client: StorageClient,
+  gcsUrl: string,
+  callback: (localPath: string) => Promise<T>,
+  opts?: DownloadOptions,
+): Promise<T> {
+  const localPath = await client.downloadToFile(gcsUrl, opts);
+  try {
+    return await callback(localPath);
+  } finally {
+    if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+  }
+}
+
+/**
+ * Download multiple GCS files to temp paths, execute a callback with a record
+ * of key→localPath mappings, and clean up all temp files in `finally`.
+ *
+ * @example
+ * ```ts
+ * const result = await withTempDownloads(storageClient, [
+ *   { key: 'photo', url: 'gs://bucket/photo.jpg' },
+ *   { key: 'signature', url: 'gs://bucket/sig.png' },
+ * ], async (paths) => {
+ *   // paths.photo, paths.signature are local file paths
+ *   return processedData;
+ * });
+ * ```
+ */
+export async function withTempDownloads<T>(
+  client: StorageClient,
+  entries: Array<{ key: string; url: string }>,
+  callback: (paths: Record<string, string>) => Promise<T>,
+  opts?: DownloadOptions,
+): Promise<T> {
+  const paths: Record<string, string> = {};
+  const downloadedPaths: string[] = [];
+
+  try {
+    // Use allSettled so all downloads resolve/reject before cleanup —
+    // prevents orphaned temp files from in-flight downloads completing after
+    // finally runs (race condition with Promise.all on partial failure)
+    const settled = await Promise.allSettled(
+      entries.map(async (entry) => {
+        const localPath = await client.downloadToFile(entry.url, opts);
+        downloadedPaths.push(localPath);
+        return { key: entry.key, localPath };
+      }),
+    );
+
+    const failed = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    if (failed.length > 0) {
+      throw failed[0].reason;
+    }
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        paths[result.value.key] = result.value.localPath;
+      }
+    }
+
+    return await callback(paths);
+  } finally {
+    for (const p of downloadedPaths) {
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+  }
 }

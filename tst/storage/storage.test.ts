@@ -1,4 +1,7 @@
-import { StorageClient, StorageClientError, createStorageClient } from '../../src/storage/index';
+import { StorageClient, StorageClientError, createStorageClient, validateFileContent, withTempDownload, withTempDownloads } from '../../src/storage/index';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 jest.mock('../../src/logger/logger', () => ({
   logger: { info: jest.fn(), error: jest.fn() },
@@ -342,5 +345,427 @@ describe('createStorageClient', () => {
 
     const headers = mockFetch.mock.calls[0][1].headers;
     expect(headers['x-service-id']).toBe('bentham-trademark-api');
+  });
+});
+
+describe('downloadToFile', () => {
+  const tmpDir = os.tmpdir();
+
+  function createReadableStream(content: Buffer) {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(content));
+        controller.close();
+      },
+    });
+  }
+
+  afterEach(() => {
+    // Clean up any leftover temp files from tests
+    const files = fs.readdirSync(tmpDir);
+    for (const f of files) {
+      if (f.startsWith('bentham_dl_')) {
+        fs.unlinkSync(path.join(tmpDir, f));
+      }
+    }
+  });
+
+  it('downloads file via signed URL and writes to temp path', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 test content');
+
+    // First call: getSignedUrl
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    // Second call: fetchExternal download
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile('gs://bucket/document.pdf');
+
+    try {
+      expect(fs.existsSync(tempPath)).toBe(true);
+      expect(tempPath).toMatch(/bentham_dl_.*\.pdf$/);
+      expect(fs.readFileSync(tempPath).toString()).toBe('%PDF-1.4 test content');
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
+
+  it('uses .pdf extension by default when URL has no extension', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 content');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile('gs://bucket/noext');
+
+    try {
+      expect(tempPath).toMatch(/\.pdf$/);
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
+
+  it('preserves original extension from URL', async () => {
+    const content = Buffer.from('\x89PNG\r\n\x1a\n image data');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(content), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile('gs://bucket/photo.png', { validate: false });
+
+    try {
+      expect(tempPath).toMatch(/\.png$/);
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
+
+  it('throws StorageClientError on non-2xx download response', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response('Not Found', { status: 404 }),
+    );
+
+    const client = createClient();
+    await expect(client.downloadToFile('gs://bucket/missing.pdf')).rejects.toMatchObject({
+      operation: 'download',
+      status: 404,
+    });
+  });
+
+  it('validates file content by default', async () => {
+    const htmlContent = Buffer.from('<!DOCTYPE html><html><body>Error</body></html>');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(htmlContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    await expect(client.downloadToFile('gs://bucket/file.pdf')).rejects.toThrow(StorageClientError);
+  });
+
+  it('skips validation when validate: false', async () => {
+    const htmlContent = Buffer.from('<!DOCTYPE html><html><body>Hello</body></html>');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(htmlContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile('gs://bucket/page.html', { validate: false });
+
+    try {
+      expect(fs.existsSync(tempPath)).toBe(true);
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
+
+  it('uses custom tempDir when provided', async () => {
+    const customDir = fs.mkdtempSync(path.join(tmpDir, 'bentham-test-'));
+    const pdfContent = Buffer.from('%PDF-1.4 content');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile('gs://bucket/doc.pdf', { tempDir: customDir });
+
+    try {
+      expect(tempPath.startsWith(customDir)).toBe(true);
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      fs.rmdirSync(customDir);
+    }
+  });
+});
+
+describe('validateFileContent', () => {
+  const tmpDir = os.tmpdir();
+
+  function writeTempFile(content: Buffer, ext = '.pdf'): string {
+    const filePath = path.join(tmpDir, `bentham_validate_test_${Date.now()}${ext}`);
+    fs.writeFileSync(filePath, content);
+    return filePath;
+  }
+
+  it('accepts valid PDF files', () => {
+    const filePath = writeTempFile(Buffer.from('%PDF-1.4 valid PDF content here'));
+    expect(() => validateFileContent(filePath, '.pdf')).not.toThrow();
+    fs.unlinkSync(filePath);
+  });
+
+  it('rejects empty files (0 bytes)', () => {
+    const filePath = writeTempFile(Buffer.alloc(0));
+    expect(() => validateFileContent(filePath, '.pdf')).toThrow(StorageClientError);
+    expect(fs.existsSync(filePath)).toBe(false); // cleaned up
+  });
+
+  it('rejects HTML error pages starting with <!DOCTYPE', () => {
+    const filePath = writeTempFile(Buffer.from('<!DOCTYPE html><html><body>Error</body></html>'));
+    try {
+      validateFileContent(filePath, '.pdf');
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err.responseBody).toContain('HTML error page');
+    }
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('rejects HTML error pages starting with <html', () => {
+    const filePath = writeTempFile(Buffer.from('<html><head></head><body>Error</body></html>'));
+    try {
+      validateFileContent(filePath, '.pdf');
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err.responseBody).toContain('HTML error page');
+    }
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('rejects HTML error pages starting with <HTML (uppercase)', () => {
+    const filePath = writeTempFile(Buffer.from('<HTML><HEAD></HEAD><BODY>Error</BODY></HTML>'));
+    try {
+      validateFileContent(filePath, '.pdf');
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err.responseBody).toContain('HTML error page');
+    }
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('rejects invalid PDF header when extension is .pdf', () => {
+    const filePath = writeTempFile(Buffer.from('This is not a PDF file at all'));
+    try {
+      validateFileContent(filePath, '.pdf');
+      fail('should have thrown');
+    } catch (err: any) {
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err.responseBody).toContain('invalid PDF header');
+    }
+    expect(fs.existsSync(filePath)).toBe(false);
+  });
+
+  it('does not check PDF header for non-pdf extensions', () => {
+    const filePath = writeTempFile(Buffer.from('Just some text content'), '.txt');
+    expect(() => validateFileContent(filePath, '.txt')).not.toThrow();
+    fs.unlinkSync(filePath);
+  });
+
+  it('accepts PNG files without PDF header check', () => {
+    const filePath = writeTempFile(Buffer.from('\x89PNG\r\n\x1a\n some image data'), '.png');
+    expect(() => validateFileContent(filePath, '.png')).not.toThrow();
+    fs.unlinkSync(filePath);
+  });
+});
+
+describe('withTempDownload', () => {
+  function createReadableStream(content: Buffer) {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(content));
+        controller.close();
+      },
+    });
+  }
+
+  it('provides local path to callback and cleans up on success', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 test');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    let capturedPath = '';
+
+    const result = await withTempDownload(client, 'gs://bucket/doc.pdf', async (localPath) => {
+      capturedPath = localPath;
+      expect(fs.existsSync(localPath)).toBe(true);
+      expect(fs.readFileSync(localPath).toString()).toBe('%PDF-1.4 test');
+      return 'processed';
+    });
+
+    expect(result).toBe('processed');
+    expect(fs.existsSync(capturedPath)).toBe(false); // cleaned up
+  });
+
+  it('cleans up temp file on callback failure', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 test');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    let capturedPath = '';
+
+    await expect(
+      withTempDownload(client, 'gs://bucket/doc.pdf', async (localPath) => {
+        capturedPath = localPath;
+        throw new Error('processing failed');
+      }),
+    ).rejects.toThrow('processing failed');
+
+    expect(fs.existsSync(capturedPath)).toBe(false); // cleaned up despite error
+  });
+});
+
+describe('withTempDownloads', () => {
+  function createReadableStream(content: Buffer) {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(content));
+        controller.close();
+      },
+    });
+  }
+
+  it('downloads multiple files and provides paths record to callback', async () => {
+    const pdf1 = Buffer.from('%PDF-1.4 file one');
+    const pdf2 = Buffer.from('%PDF-1.4 file two');
+
+    // First file: getSignedUrl + download
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed1' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed2' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdf1), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdf2), { status: 200 }),
+    );
+
+    const client = createClient();
+    let capturedPaths: Record<string, string> = {};
+
+    const result = await withTempDownloads(
+      client,
+      [
+        { key: 'doc1', url: 'gs://bucket/first.pdf' },
+        { key: 'doc2', url: 'gs://bucket/second.pdf' },
+      ],
+      async (paths) => {
+        capturedPaths = { ...paths };
+        expect(Object.keys(paths)).toEqual(expect.arrayContaining(['doc1', 'doc2']));
+        expect(fs.existsSync(paths.doc1)).toBe(true);
+        expect(fs.existsSync(paths.doc2)).toBe(true);
+        return 'batch-done';
+      },
+    );
+
+    expect(result).toBe('batch-done');
+    // Both cleaned up
+    expect(fs.existsSync(capturedPaths.doc1)).toBe(false);
+    expect(fs.existsSync(capturedPaths.doc2)).toBe(false);
+  });
+
+  it('cleans up all files on callback failure', async () => {
+    const pdf1 = Buffer.from('%PDF-1.4 file one');
+    const pdf2 = Buffer.from('%PDF-1.4 file two');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed1' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed2' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdf1), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdf2), { status: 200 }),
+    );
+
+    const client = createClient();
+    let capturedPaths: Record<string, string> = {};
+
+    await expect(
+      withTempDownloads(
+        client,
+        [
+          { key: 'a', url: 'gs://bucket/a.pdf' },
+          { key: 'b', url: 'gs://bucket/b.pdf' },
+        ],
+        async (paths) => {
+          capturedPaths = { ...paths };
+          throw new Error('batch failed');
+        },
+      ),
+    ).rejects.toThrow('batch failed');
+
+    expect(fs.existsSync(capturedPaths.a)).toBe(false);
+    expect(fs.existsSync(capturedPaths.b)).toBe(false);
+  });
+
+  it('cleans up already-downloaded files if one download fails', async () => {
+    const pdf1 = Buffer.from('%PDF-1.4 file one');
+
+    // First file succeeds
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed1' } }), { status: 200 }),
+    );
+    // Second file: getSignedUrl fails
+    mockFetch.mockResolvedValueOnce(
+      new Response('{"error":"not found"}', { status: 404 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdf1), { status: 200 }),
+    );
+
+    const client = createClient();
+
+    await expect(
+      withTempDownloads(
+        client,
+        [
+          { key: 'a', url: 'gs://bucket/a.pdf' },
+          { key: 'b', url: 'gs://bucket/missing.pdf' },
+        ],
+        async (paths) => paths,
+      ),
+    ).rejects.toThrow();
+
+    // Verify no leftover temp files
+    const tmpFiles = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith('bentham_dl_'));
+    expect(tmpFiles.length).toBe(0);
   });
 });
