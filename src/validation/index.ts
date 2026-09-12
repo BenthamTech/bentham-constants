@@ -13,5 +13,5 @@ export const DIN_REGEX = /^[0-9]{8}$/;
 /** Basic email format validation */
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** MCA application reference ID: digits-digits */
+/** Application reference ID: digits-digits */
 export const REF_ID_REGEX = /^\d+-\d+$/;
