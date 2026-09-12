@@ -15,5 +15,8 @@ export const serviceUrls = {
   payment: "https://api.payment.bentham.legal",
   app: "https://www.bentham.legal",
   jeremy: "https://jeremy.bentham.legal",
+  // Raw Cloud Run URL: asia-south2 does not support Cloud Run domain mappings.
+  // TODO: swap for a custom domain (api.dsc.bentham.legal) once a load balancer is set up.
+  dsc: "https://bentham-dsc-api-206295998484.asia-south2.run.app",
   // TODO: add mca once custom domain is available (asia-south2 does not support domain mappings)
 } as const;
