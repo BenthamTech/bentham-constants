@@ -4,7 +4,7 @@
 export type FeeEnquiryEntityType = 'Company' | 'LLP';
 
 /**
- * Response shape from POST /api/v1/mca/company/fee.
+ * Response shape for a company fee enquiry.
  * Guaranteed fields (normalFee, additionalFee, total) are always present.
  * Company-specific fields are optional — only returned for Company enquiries.
  *
@@ -27,8 +27,8 @@ export interface FeeEnquiryData {
 }
 
 /**
- * Input fields for Company fee enquiry.
- * Internal MCA fields (natureOfService, subService) are hardcoded in the handler.
+ * Input fields for a Company fee enquiry.
+ * Non-varying provider fields are set internally by the handler.
  */
 export interface CompanyFeeEnquiryInput {
   enquireFeeFor: 'Company';
@@ -40,9 +40,9 @@ export interface CompanyFeeEnquiryInput {
 }
 
 /**
- * Input fields for LLP fee enquiry.
- * Internal MCA fields (natureOfService, subService, conversionFromCompToLLP)
- * are hardcoded in the handler — only contribution varies per query.
+ * Input fields for an LLP fee enquiry.
+ * Non-varying provider fields are set internally by the handler —
+ * only contribution varies per query.
  */
 export interface LlpFeeEnquiryInput {
   enquireFeeFor: 'LLP';
@@ -55,9 +55,9 @@ export interface LlpFeeEnquiryInput {
 export type FeeEnquiryInput = CompanyFeeEnquiryInput | LlpFeeEnquiryInput;
 
 /**
- * States accepted by the MCA fee enquiry portal.
- * Uses MCA's legacy naming (ORISSA not ODISHA, PONDICHERRY not PUDUCHERRY,
- * CHATTISGARH not CHHATTISGARH) which differs from INCORPORATION_STATES.
+ * State names accepted by the fee enquiry provider.
+ * Uses the provider's legacy spellings (ORISSA not ODISHA, PONDICHERRY not
+ * PUDUCHERRY, CHATTISGARH not CHHATTISGARH) which differ from INCORPORATION_STATES.
  */
 export const MCA_FEE_ENQUIRY_STATES = [
   'ANDHRA PRADESH',
