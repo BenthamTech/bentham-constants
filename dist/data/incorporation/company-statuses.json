@@ -1,0 +1,9 @@
+{
+    "REVIEW_PENDING": "Review Pending",
+    "FILING_QUEUED": "Filing Queued",
+    "FILING_IN_PROGRESS": "Filing in Progress",
+    "OTP_VERIFICATION_PENDING": "OTP Verification Pending",
+    "OTP_VERIFICATION_COMPLETE": "OTP Verification Complete",
+    "DSC_SIGNING_PENDING": "DSC Signing Pending",
+    "FILING_COMPLETE": "Filing Complete"
+}

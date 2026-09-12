@@ -1,0 +1,48 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.errorHandler = errorHandler;
+exports.notFound = notFound;
+exports.validateOnlyGuard = validateOnlyGuard;
+const logger_1 = require("../logger/logger");
+function errorHandler(opts) {
+    const exposeStack = opts?.exposeStack ?? process.env.NODE_ENV === 'development';
+    return (err, _req, res, _next) => {
+        const statusCode = err.statusCode || 500;
+        const code = err.code || 'INTERNAL_ERROR';
+        logger_1.logger.error({ statusCode, code, err: err.message }, 'Unhandled error');
+        const body = {
+            success: false,
+            error: {
+                code,
+                message: err.message || 'Internal server error',
+                ...(err.details !== undefined && { details: err.details }),
+                ...(exposeStack && err.stack && { stack: err.stack }),
+            },
+            timestamp: new Date().toISOString(),
+        };
+        res.status(statusCode).json(body);
+    };
+}
+function notFound() {
+    return (req, res) => {
+        res.status(404).json({
+            success: false,
+            error: { code: 'NOT_FOUND', message: `Route not found: ${req.method} ${req.originalUrl || req.url}` },
+            timestamp: new Date().toISOString(),
+        });
+    };
+}
+const TRUTHY = new Set(["true", "1", "yes"]);
+/**
+ * Express middleware: when X-Validate-Only header is truthy, short-circuits
+ * after validation passes with { success: true, valid: true }.
+ * Place AFTER validation middleware, BEFORE the controller.
+ */
+function validateOnlyGuard(req, res, next) {
+    const h = req.get("X-Validate-Only");
+    if (h && TRUTHY.has(String(h).toLowerCase())) {
+        res.status(200).json({ success: true, valid: true });
+        return;
+    }
+    next();
+}

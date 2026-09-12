@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateTrademarkCost = exports.calculateStampPaperFee = exports.calculateGovernmentFee = exports.calculateBenthamFee = exports.TOTAL_PER_CLASS = exports.trademarkPricingConfig = void 0;
+var calculator_1 = require("./calculator");
+Object.defineProperty(exports, "trademarkPricingConfig", { enumerable: true, get: function () { return calculator_1.trademarkPricingConfig; } });
+Object.defineProperty(exports, "TOTAL_PER_CLASS", { enumerable: true, get: function () { return calculator_1.TOTAL_PER_CLASS; } });
+Object.defineProperty(exports, "calculateBenthamFee", { enumerable: true, get: function () { return calculator_1.calculateBenthamFee; } });
+Object.defineProperty(exports, "calculateGovernmentFee", { enumerable: true, get: function () { return calculator_1.calculateGovernmentFee; } });
+Object.defineProperty(exports, "calculateStampPaperFee", { enumerable: true, get: function () { return calculator_1.calculateStampPaperFee; } });
+Object.defineProperty(exports, "calculateTrademarkCost", { enumerable: true, get: function () { return calculator_1.calculateTrademarkCost; } });
