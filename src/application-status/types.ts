@@ -13,11 +13,11 @@ import type { ApplicationStatusTabType } from './tabs';
  * pre-formatted `DD/MM/YYYY` display string.
  */
 export interface ApplicationStatusRow {
-  /** Application reference number, e.g. "1-26793813196". */
+  /** Application reference number. */
   referenceNumber: string;
   /** Integration id. */
   integrationId: string;
-  /** Form name, e.g. "Spice+ Part A". */
+  /** Form name. */
   formName: string;
   /** Proposed / entity name. */
   proposedName: string;
