@@ -49,6 +49,10 @@
       "types": "./dist/src/service-auth/index.d.ts",
       "default": "./dist/src/service-auth/index.js"
     },
+    "./token": {
+      "types": "./dist/src/token/index.d.ts",
+      "default": "./dist/src/token/index.js"
+    },
     "./trademark": {
       "types": "./dist/src/trademark/index.d.ts",
       "default": "./dist/src/trademark/index.js"
