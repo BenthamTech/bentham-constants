@@ -1,7 +1,6 @@
 /**
  * Company type constants.
- * Shared between bentham-app (UI rendering, form selection) and
- * bentham-mca-api (filing logic, fee enquiry).
+ * Shared across services for UI rendering, form selection, and filing logic.
  */
 
 export enum CompanyType {

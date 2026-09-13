@@ -11,16 +11,16 @@ export const FILING_MODES_CONFIG = {
   [FilingMode.SANITY_FILING]: {
     label: 'Sanity Filing',
     description:
-      'Full pipeline (SPICe-B → INC → Agile Pro) skipping OTP. Used for automated sanity checks before the client call.',
+      'Runs the full filing pipeline as a pre-submission sanity check before the client call.',
   },
   [FilingMode.FORCE_REFILL]: {
     label: 'Force Refill',
     description:
-      'Re-fills all forms (SPICe-B → INC → Agile Pro) from scratch, ignoring filed status. Used to correct data in already-submitted forms.',
+      'Re-fills all forms from scratch, ignoring filed status. Used to correct data in already-submitted forms.',
   },
   [FilingMode.FORCE_FILE_AGILE_PRO]: {
     label: 'Force File Agile Pro',
     description:
-      'Skip all other steps and directly edit/re-file Agile Pro, even if already submitted.',
+      'Skip all other steps and directly edit/re-file the final form, even if already submitted.',
   },
 } as const;
