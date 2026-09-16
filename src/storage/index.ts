@@ -27,6 +27,12 @@ export interface DownloadOptions {
   validate?: boolean;
   /** Custom temp directory (default: os.tmpdir()) */
   tempDir?: string;
+  /**
+   * Name the temp file after the source object's friendly name (derived via
+   * {@link friendlyNameFromStorageUrl}). Falls back to the `bentham_dl_` name
+   * when no friendly name can be derived. Default: false.
+   */
+  preserveName?: boolean;
 }
 
 /**
@@ -127,7 +133,7 @@ export class StorageClient extends BaseServiceClient {
     const signedUrl = await this.getSignedUrl(gcsUrl);
     const ext = extractExtension(gcsUrl);
     const tempDir = opts?.tempDir ?? os.tmpdir();
-    const tempPath = path.join(tempDir, `bentham_dl_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`);
+    const tempPath = path.join(tempDir, buildTempFileName(gcsUrl, ext, opts?.preserveName));
 
     const timeoutMs = opts?.timeoutMs ?? 60_000;
     const response = await fetchExternal(signedUrl, { redirect: 'follow' }, timeoutMs);
@@ -220,6 +226,68 @@ function extractExtension(gcsUrl: string): string {
     const ext = path.extname(gcsUrl);
     return ext || '.pdf';
   }
+}
+
+/**
+ * Derive the original friendly filename from a Bentham storage URL.
+ *
+ * Bentham storage objects are named `<timestamp>-<friendly_name>.<ext>`
+ * (e.g. `.../documents/1789471578253-udyam_certificate.pdf`), so the friendly
+ * name is the object basename with the leading `<timestamp>-` prefix removed.
+ *
+ * @param url - A Bentham storage URL (gs:// or https://...) or a bare path.
+ * @returns The friendly filename, or `null` when none can be derived
+ *   (empty basename, a bare extension like `.pdf`, or an unparseable input).
+ *
+ * @example
+ * friendlyNameFromStorageUrl('gs://b/docs/1789471578253-udyam_certificate.pdf')
+ *   // => 'udyam_certificate.pdf'
+ * friendlyNameFromStorageUrl('gs://b/docs/.pdf') // => null
+ */
+export function friendlyNameFromStorageUrl(url: string): string | null {
+  if (!url) return null;
+
+  let basename: string;
+  try {
+    basename = path.posix.basename(new URL(url).pathname);
+  } catch {
+    basename = path.posix.basename(url);
+  }
+
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(basename);
+  } catch {
+    decoded = basename;
+  }
+
+  // Strip a leading `<timestamp>-` prefix (Bentham storage naming convention).
+  const stripped = decoded.replace(/^\d+-/, '');
+
+  // Reject empty names and bare extensions (e.g. '.pdf' — no actual name).
+  // A bare extension is a leading dot followed by a single extension segment
+  // with nothing before it (path.parse('.pdf') => { name: '.pdf', ext: '' }).
+  if (!stripped || /^\.[^.]*$/.test(stripped)) return null;
+
+  return stripped;
+}
+
+/**
+ * Build the temp file basename for a download. When `preserveName` is set and a
+ * friendly name is derivable from the URL, uses it (preserving the validated
+ * extension); otherwise falls back to the opaque `bentham_dl_<ts>_<hash><ext>`
+ * name.
+ */
+function buildTempFileName(gcsUrl: string, ext: string, preserveName?: boolean): string {
+  if (preserveName) {
+    const friendly = friendlyNameFromStorageUrl(gcsUrl);
+    if (friendly) {
+      // Preserve the extension we validated against; strip any extension the
+      // friendly name already carries so we don't double it up.
+      return `${path.parse(friendly).name}${ext}`;
+    }
+  }
+  return `bentham_dl_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
 }
 
 /**
