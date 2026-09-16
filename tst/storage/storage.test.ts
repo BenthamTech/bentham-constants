@@ -1,4 +1,4 @@
-import { StorageClient, StorageClientError, createStorageClient, validateFileContent, withTempDownload, withTempDownloads } from '../../src/storage/index';
+import { StorageClient, StorageClientError, createStorageClient, validateFileContent, withTempDownload, withTempDownloads, friendlyNameFromStorageUrl } from '../../src/storage/index';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -504,6 +504,50 @@ describe('downloadToFile', () => {
       fs.rmdirSync(customDir);
     }
   });
+
+  it('names temp file after friendly name when preserveName: true', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 content');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    const tempPath = await client.downloadToFile(
+      'gs://bucket/documents/1789471578253-udyam_certificate.pdf',
+      { preserveName: true },
+    );
+
+    try {
+      expect(path.basename(tempPath)).toBe('udyam_certificate.pdf');
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
+
+  it('falls back to bentham_dl_ name when preserveName set but not derivable', async () => {
+    const pdfContent = Buffer.from('%PDF-1.4 content');
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { url: 'https://storage.googleapis.com/signed' } }), { status: 200 }),
+    );
+    mockFetch.mockResolvedValueOnce(
+      new Response(createReadableStream(pdfContent), { status: 200 }),
+    );
+
+    const client = createClient();
+    // Bare extension → no derivable friendly name
+    const tempPath = await client.downloadToFile('gs://bucket/documents/.pdf', { preserveName: true });
+
+    try {
+      expect(path.basename(tempPath)).toMatch(/^bentham_dl_\d+_[0-9a-f]+\.pdf$/);
+    } finally {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    }
+  });
 });
 
 describe('validateFileContent', () => {
@@ -767,5 +811,49 @@ describe('withTempDownloads', () => {
     // Verify no leftover temp files
     const tmpFiles = fs.readdirSync(os.tmpdir()).filter(f => f.startsWith('bentham_dl_'));
     expect(tmpFiles.length).toBe(0);
+  });
+});
+
+describe('friendlyNameFromStorageUrl', () => {
+  it('strips the leading timestamp prefix from a storage object', () => {
+    expect(
+      friendlyNameFromStorageUrl('gs://bucket/documents/1789471578253-udyam_certificate.pdf'),
+    ).toBe('udyam_certificate.pdf');
+  });
+
+  it('works with https storage URLs', () => {
+    expect(
+      friendlyNameFromStorageUrl('https://storage.googleapis.com/bucket/docs/1789471578253-poa.pdf'),
+    ).toBe('poa.pdf');
+  });
+
+  it('returns the basename unchanged when there is no timestamp prefix', () => {
+    expect(friendlyNameFromStorageUrl('gs://bucket/docs/certificate.pdf')).toBe('certificate.pdf');
+  });
+
+  it('decodes URL-encoded characters', () => {
+    expect(
+      friendlyNameFromStorageUrl('gs://bucket/docs/1789471578253-my%20document.pdf'),
+    ).toBe('my document.pdf');
+  });
+
+  it('returns null for a bare extension (.pdf)', () => {
+    expect(friendlyNameFromStorageUrl('gs://bucket/docs/.pdf')).toBeNull();
+  });
+
+  it('returns null for a timestamp-prefixed bare extension', () => {
+    expect(friendlyNameFromStorageUrl('gs://bucket/docs/1789471578253-.pdf')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(friendlyNameFromStorageUrl('')).toBeNull();
+  });
+
+  it('returns null when the URL path has no basename', () => {
+    expect(friendlyNameFromStorageUrl('https://storage.googleapis.com/')).toBeNull();
+  });
+
+  it('handles a bare path (no scheme)', () => {
+    expect(friendlyNameFromStorageUrl('1789471578253-report.pdf')).toBe('report.pdf');
   });
 });
