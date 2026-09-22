@@ -12,5 +12,5 @@ export type {
   FeeEnquiryInput,
   McaFeeEnquiryState,
 } from './fee-enquiry-types';
-export { DSC_FORM_NAMES, DscMcaUploadStatus, type DscFormName } from './dsc-forms';
+export { DSC_FORM_NAMES, LP_DSC_FORM_NAMES, DscMcaUploadStatus, type DscFormName, type LpDscFormName } from './dsc-forms';
 export { CompanyType, COMPANY_TYPE_CONFIG, type CompanyTypeConfig } from './company-types';
