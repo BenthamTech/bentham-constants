@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -100,6 +100,10 @@
     "./application-status": {
       "types": "./dist/src/application-status/index.d.ts",
       "default": "./dist/src/application-status/index.js"
+    },
+    "./trademark-portal-status": {
+      "types": "./dist/src/trademark-portal-status/index.d.ts",
+      "default": "./dist/src/trademark-portal-status/index.js"
     },
     "./document-validator": {
       "types": "./dist/src/document-validator/index.d.ts",
