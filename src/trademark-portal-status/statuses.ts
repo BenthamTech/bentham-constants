@@ -1,8 +1,8 @@
 /**
  * Trademark portal status vocabulary — the shared, API-facing set of normalized
- * statuses derived from the IP India portal's raw Filing History labels. Used by the
- * daily sync job that produces the data and the read API / admin dashboard that consume
- * it, so both code against one vocabulary and the shape can't drift.
+ * statuses derived from the upstream source's raw status labels. Used by the job that
+ * produces the data and the read API / admin dashboard that consume it, so both code
+ * against one vocabulary and the shape can't drift.
  */
 
 /** Normalized, API-facing status values. */
@@ -21,7 +21,7 @@ export const TRADEMARK_PORTAL_STATUSES = Object.values(
 ) as TrademarkPortalStatusType[];
 
 /**
- * Raw portal label → normalized status. Keyed on the lowercased, whitespace-collapsed
+ * Raw source label → normalized status. Keyed on the lowercased, whitespace-collapsed
  * label so lookups are case-insensitive and tolerant of surrounding/internal whitespace.
  * Extend this map as new raw labels appear.
  */
@@ -32,7 +32,7 @@ const RAW_LABEL_TO_STATUS: Record<string, TrademarkPortalStatusType> = {
 };
 
 /**
- * Normalize a raw portal status label to a {@link TrademarkPortalStatusType}.
+ * Normalize a raw status label to a {@link TrademarkPortalStatusType}.
  * Case-insensitive and whitespace-tolerant (leading/trailing and collapsed internal
  * whitespace). Returns `null` for any unrecognized label — never throws.
  */
