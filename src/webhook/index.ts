@@ -1,5 +1,6 @@
 import { generateHmacHeaders } from '../hmac';
 import { fetchExternal } from '../fetch';
+import { withRetry } from '../retry';
 import { logger } from '../logger/logger';
 import { getContext } from '../logger/context';
 
@@ -71,34 +72,58 @@ export class WebhookCallbackClient {
       return;
     }
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      try {
-        const res = await fetchExternal(url, { method: 'POST', headers, body }, this.timeoutMs);
-        if (res.ok) {
-          logger.info({ path, attempt, service: this.serviceName }, `Webhook delivered to ${path}`);
-          return;
-        }
-        logger.warn(
-          { path, attempt, status: res.status, service: this.serviceName },
-          `Webhook ${path} returned ${res.status}`,
-        );
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          { path, attempt, error: message, service: this.serviceName },
-          `Webhook ${path} attempt ${attempt} failed: ${message}`,
-        );
-      }
-
-      if (attempt < this.maxRetries) {
-        await new Promise((r) => setTimeout(r, this.retryDelayMs));
-      }
+    // Delivery is fire-and-forget safe: retry on ANY failure (thrown error or
+    // non-ok status) and never throw. `withRetry` owns the attempt counting and
+    // the constant delay (backoffMultiplier: 1 keeps it flat, matching the old
+    // loop); the per-attempt warn and success info logs live inside `fn` so the
+    // observable logging is unchanged. `timeoutMs: 0` avoids double-timing —
+    // `fetchExternal` already applies `this.timeoutMs`.
+    try {
+      await withRetry(
+        async (attempt) => {
+          let res: Awaited<ReturnType<typeof fetchExternal>>;
+          try {
+            res = await fetchExternal(url, { method: 'POST', headers, body }, this.timeoutMs);
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            logger.warn(
+              { path, attempt, error: message, service: this.serviceName },
+              `Webhook ${path} attempt ${attempt} failed: ${message}`,
+            );
+            throw err;
+          }
+          if (res.ok) {
+            logger.info({ path, attempt, service: this.serviceName }, `Webhook delivered to ${path}`);
+            return res;
+          }
+          logger.warn(
+            { path, attempt, status: res.status, service: this.serviceName },
+            `Webhook ${path} returned ${res.status}`,
+          );
+          const httpError: Error & { status?: number } = new Error(`HTTP ${res.status}`);
+          httpError.status = res.status;
+          throw httpError;
+        },
+        {
+          maxRetries: this.maxRetries,
+          initialDelayMs: this.retryDelayMs,
+          backoffMultiplier: 1,
+          timeoutMs: 0,
+        },
+        () => true,
+        `webhook ${path}`,
+      );
+    } catch {
+      // Reached only after the final attempt is exhausted. Every attempt's
+      // failure (thrown error or non-ok status) was already warn-logged inside
+      // `fn` — so we do NOT re-warn here (that would double-count and the tests
+      // assert an exact warn count). We only record the permanent failure, and
+      // swallow rather than rethrow (send() is fire-and-forget safe).
+      logger.error(
+        { path, maxRetries: this.maxRetries, service: this.serviceName },
+        `Webhook ${path} failed after ${this.maxRetries + 1} attempts`,
+      );
     }
-
-    logger.error(
-      { path, maxRetries: this.maxRetries, service: this.serviceName },
-      `Webhook ${path} failed after ${this.maxRetries + 1} attempts`,
-    );
   }
 
   /**
