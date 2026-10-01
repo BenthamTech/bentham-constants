@@ -18,8 +18,12 @@ export interface TrademarkPortalStatusIngestRow {
   temporaryApplicationNumber: string | null;
   /** Form type. */
   formType: string;
-  /** Trademark class. */
-  classNumber: number;
+  /**
+   * Trademark class, or null for non-class-bearing forms (e.g. TM-M, MIS-R):
+   * request/reply forms filed against an existing application carry no class of
+   * their own.
+   */
+  classNumber: number | null;
   /** Filing date as a display string ("DD/MM/YYYY"). */
   filingDate: string;
   /** Application type. */
@@ -47,7 +51,8 @@ export interface TrademarkPortalStatusRow {
   applicationNumber: string;
   temporaryApplicationNumber: string | null;
   formType: string;
-  classNumber: number;
+  /** Trademark class, or null for non-class-bearing forms (e.g. TM-M, MIS-R). */
+  classNumber: number | null;
   filingDate: string;
   applicationType: string;
   applicationReferenceNumber: string | null;
