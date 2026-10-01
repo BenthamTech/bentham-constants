@@ -8,6 +8,7 @@ import * as crypto from 'node:crypto';
 import { BaseServiceClient, ServiceClientError } from '../http';
 import { serviceUrls } from '../config';
 import { fetchExternal } from '../fetch';
+import { HMAC_ENV_KEYS } from '../env-keys';
 
 export interface StorageClientOptions {
   /** Calling service name (sent as x-service-id in HMAC headers) */
@@ -52,7 +53,7 @@ export class StorageClient extends BaseServiceClient {
     super({
       baseUrl: opts.baseUrl ?? serviceUrls.storage,
       auth: {
-        secretEnvVar: opts.secretEnvVar ?? 'BENTHAM_STORAGE_API_HMAC',
+        secretEnvVar: opts.secretEnvVar ?? HMAC_ENV_KEYS.STORAGE,
         serviceName: opts.serviceName,
       },
       timeout: opts.timeout ?? 30_000,
