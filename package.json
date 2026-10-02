@@ -81,6 +81,10 @@
       "types": "./dist/src/storage/index.d.ts",
       "default": "./dist/src/storage/index.js"
     },
+    "./notification": {
+      "types": "./dist/src/notification/index.d.ts",
+      "default": "./dist/src/notification/index.js"
+    },
     "./payment": {
       "types": "./dist/src/payment/index.d.ts",
       "default": "./dist/src/payment/index.js"
