@@ -88,6 +88,20 @@ src/service-auth/ ← outbound HMAC auth factory
 
 Factory for outbound service-to-service HMAC authentication. Wraps `generateHmacHeaders` with env-var-based secret resolution.
 
+### Env Keys
+
+Shared HMAC env-var **key names** (not secrets) live in one place so a rename happens once, not at every call site:
+
+```ts
+import { HMAC_ENV_KEYS } from '@bentham/constants/env-keys';
+import { createServiceAuth } from '@bentham/constants/service-auth';
+
+const storageAuth = createServiceAuth(HMAC_ENV_KEYS.STORAGE, 'bentham-mca-api');
+const notificationAuth = createServiceAuth(HMAC_ENV_KEYS.NOTIFICATION, 'bentham-mca-api');
+```
+
+Available: `STORAGE`, `NOTIFICATION`, `TRADEMARK`, `DOCUMENT_VALIDATOR`.
+
 ### Usage
 
 ```ts

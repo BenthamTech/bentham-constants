@@ -2,6 +2,7 @@ import { createServiceAuth } from '../service-auth';
 import { serviceUrls } from '../config';
 import { fetchExternal } from '../fetch';
 import { logger } from '../logger/logger';
+import { HMAC_ENV_KEYS } from '../env-keys';
 
 const CAPTCHA_DECODE_PATH = '/api/v1/captcha/decode';
 const TIMEOUT_MS = 10_000;
@@ -23,13 +24,13 @@ export async function decodeCaptcha(
   imageBuffer: Buffer,
   serviceName: string,
 ): Promise<string | null> {
-  const secret = process.env.BENTHAM_DOCUMENT_VALIDATOR_API_HMAC;
+  const secret = process.env[HMAC_ENV_KEYS.DOCUMENT_VALIDATOR];
   if (!secret) {
-    logger.error('BENTHAM_DOCUMENT_VALIDATOR_API_HMAC not configured');
+    logger.error(`${HMAC_ENV_KEYS.DOCUMENT_VALIDATOR} not configured`);
     return null;
   }
 
-  const auth = createServiceAuth('BENTHAM_DOCUMENT_VALIDATOR_API_HMAC', serviceName);
+  const auth = createServiceAuth(HMAC_ENV_KEYS.DOCUMENT_VALIDATOR, serviceName);
   const body = JSON.stringify({ image: imageBuffer.toString('base64') });
   const headers = auth('POST', CAPTCHA_DECODE_PATH, body);
 
@@ -56,5 +57,5 @@ export async function decodeCaptcha(
  * Check whether captcha decoding is available (env var + service URL configured).
  */
 export function isCaptchaAvailable(): boolean {
-  return Boolean(process.env.BENTHAM_DOCUMENT_VALIDATOR_API_HMAC && serviceUrls.documentValidator);
+  return Boolean(process.env[HMAC_ENV_KEYS.DOCUMENT_VALIDATOR] && serviceUrls.documentValidator);
 }
