@@ -9,6 +9,23 @@ const SEND_PATH = '/v1/notifications/send';
 const DEFAULT_SECRET_ENV_VAR = 'BENTHAM_NOTIFICATION_API_HMAC';
 
 /**
+ * WhatsApp media header (whatsapp only).
+ *
+ * Fills the `header_1` component of a WhatsApp template. The notification
+ * service maps this onto MSG91's flat keyed component map; `filename` is
+ * required for (and only used by) `document` headers. Mirrors the service's
+ * `WhatsAppHeader` contract (bentham-notification-service PR #124).
+ */
+export interface WhatsAppHeader {
+  /** Media kind. `document` is the only one that carries a filename. */
+  type: 'document' | 'image' | 'video';
+  /** Publicly fetchable media URL. For a private GCS object pass a SIGNED url. */
+  value: string;
+  /** Display filename — required when `type` is `document`. */
+  filename?: string;
+}
+
+/**
  * The wire payload for `POST /v1/notifications/send`. Identical shape across all
  * callers — the superset of the three hand-rolled clients this replaces.
  */
@@ -21,12 +38,23 @@ export interface NotificationPayload {
   template_name: string;
   /** Email subject line (email only). */
   subject?: string;
-  /** Template variable substitutions. */
+  /**
+   * Template variable substitutions.
+   *
+   * For a WhatsApp template with body parameters the KEYS must carry the
+   * component prefix the template's `parameter_format` expects: `body_<n>` for
+   * POSITIONAL templates, `body_<parameter_name>` for NAMED ones (e.g.
+   * `body_lawyer_name`). A header is passed via `header`, NOT as a `header_1`
+   * entry here. This is the single most error-prone field — see
+   * bentham-notification-service `docs/design/WHATSAPP_MEDIA_HEADER.md`.
+   */
   variables?: Record<string, string>;
   /** Additional email recipients (email only). */
   cc?: string[];
   /** Template language (whatsapp only). */
   language?: string;
+  /** WhatsApp media header filling the template's `header_1` slot (whatsapp only). */
+  header?: WhatsAppHeader;
   /** Idempotency key — the service dedups sends sharing this key. */
   dedup_key?: string;
   /** How long (seconds) the dedup key is honoured. */
