@@ -130,6 +130,40 @@ describe('NotificationClient', () => {
       await expect(client.send(samplePayload)).rejects.toBeInstanceOf(ServiceClientError);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it('serializes a WhatsApp document-header payload unchanged', async () => {
+      const client = createClient();
+      mockFetch.mockResolvedValue(okResponse({ messageId: 'msg-wa' }));
+
+      const whatsappPayload: NotificationPayload = {
+        type: 'whatsapp',
+        to: ['918919342257'],
+        template_name: 'trademark_stamp_paper_request',
+        language: 'en',
+        variables: {
+          body_stamp_paper_value: '100',
+          body_notary_requirement: 'No notary needed',
+          body_lawyer_name: 'Sanjay Prasad Auguri',
+          body_lawyer_father_name: 'Prasad Auguri',
+          body_proprietor_name: 'Acme Pvt Ltd',
+        },
+        header: {
+          type: 'document',
+          value: 'https://storage.googleapis.com/bentham_storage/poa_signed.pdf?X-Goog-Signature=abc',
+          filename: 'poa_signed.pdf',
+        },
+      };
+
+      await client.send(whatsappPayload);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.notification.bentham.legal/v1/notifications/send',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(whatsappPayload),
+        }),
+      );
+    });
   });
 
   describe('createNotificationClient', () => {
