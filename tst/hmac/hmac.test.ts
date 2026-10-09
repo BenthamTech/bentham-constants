@@ -1,4 +1,4 @@
-import { generateHmacHeaders, verifyHmacSignature } from '../../src/hmac/index';
+import { generateHmacHeaders, verifyHmacSignature, verifyServiceRequest } from '../../src/hmac/index';
 
 describe('generateHmacHeaders', () => {
   it('returns all three required headers', () => {
@@ -80,6 +80,18 @@ describe('verifyHmacSignature', () => {
     const result = verifyHmacSignature(req, { ...options, secret: '' });
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Auth not configured');
+  });
+
+  it('rejects a non-numeric timestamp instead of treating it as fresh', () => {
+    const headers = generateHmacHeaders('POST', '/api', '{}', secret, 'bentham-app');
+    headers['x-timestamp'] = 'not-a-number';
+    const result = verifyHmacSignature(
+      { method: 'POST', path: '/api', body: '{}', headers },
+      options,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.statusCode).toBe(401);
+    expect(result.error).toBe('Invalid timestamp');
   });
 });
 
@@ -278,5 +290,127 @@ describe('hmacAuthMiddleware', () => {
     skipMiddleware({ method: 'GET', originalUrl: '/healthadmin?check=true', body: {}, headers: {} }, res, next);
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
+  });
+});
+
+describe('verifyServiceRequest', () => {
+  const secret = 'service-request-secret';
+  const options = { secret, allowedServices: ['bentham-app', 'bentham-mca-api'] };
+  const url = 'https://app.example.com/api/webhooks/trademark-filing/status?x=1';
+  const pathname = '/api/webhooks/trademark-filing/status';
+
+  function signedRequest(
+    body: string,
+    { method = 'POST', serviceId = 'bentham-app', url: reqUrl = url, headerOverrides = {} as Record<string, string> } = {},
+  ) {
+    const headers = generateHmacHeaders(method, pathname, body, secret, serviceId);
+    const merged = { ...headers, ...headerOverrides };
+    const init: RequestInit = { method, headers: merged };
+    if (method !== 'GET' && method !== 'HEAD') {
+      init.body = body;
+    }
+    return new Request(reqUrl, init);
+  }
+
+  it('accepts a valid signed request and returns the parsed body + raw body', async () => {
+    const body = JSON.stringify({ status: 'approved', markId: 42 });
+    const result = await verifyServiceRequest<{ status: string; markId: number }>(
+      signedRequest(body),
+      options,
+    );
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.rawBody).toBe(body);
+      expect(result.body).toEqual({ status: 'approved', markId: 42 });
+    }
+  });
+
+  it('accepts a GET with no body and parses body to undefined', async () => {
+    const headers = generateHmacHeaders('GET', pathname, '', secret, 'bentham-app');
+    const request = new Request(url, { method: 'GET', headers: { ...headers } });
+    const result = await verifyServiceRequest(request, options);
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.rawBody).toBe('');
+      expect(result.body).toBeUndefined();
+    }
+  });
+
+  it('rejects missing headers with 401', async () => {
+    const request = new Request(url, { method: 'POST', body: '{}' });
+    const result = await verifyServiceRequest(request, options);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(401);
+      expect(result.error).toBe('Missing auth headers');
+    }
+  });
+
+  it('rejects a service not in allowedServices with 403', async () => {
+    const result = await verifyServiceRequest(
+      signedRequest('{}', { serviceId: 'rogue-service' }),
+      options,
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(403);
+      expect(result.error).toBe('Service not allowed');
+    }
+  });
+
+  it('rejects an expired timestamp with 401', async () => {
+    const result = await verifyServiceRequest(
+      signedRequest('{}', { headerOverrides: { 'x-timestamp': '1000000000' } }),
+      options,
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(401);
+      expect(result.error).toBe('Request expired');
+    }
+  });
+
+  it('rejects a non-numeric timestamp with 401', async () => {
+    const result = await verifyServiceRequest(
+      signedRequest('{}', { headerOverrides: { 'x-timestamp': 'nope' } }),
+      options,
+    );
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(401);
+      expect(result.error).toBe('Invalid timestamp');
+    }
+  });
+
+  it('rejects a tampered body with 401', async () => {
+    const headers = generateHmacHeaders('POST', pathname, '{"original":true}', secret, 'bentham-app');
+    const request = new Request(url, { method: 'POST', headers: { ...headers }, body: '{"tampered":true}' });
+    const result = await verifyServiceRequest(request, options);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(401);
+      expect(result.error).toBe('Invalid signature');
+    }
+  });
+
+  it('rejects an empty secret with 401', async () => {
+    const result = await verifyServiceRequest(signedRequest('{}'), { ...options, secret: '' });
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(401);
+      expect(result.error).toBe('Auth not configured');
+    }
+  });
+
+  it('rejects invalid JSON on a signed non-empty body with 400', async () => {
+    const bad = 'not-json';
+    const headers = generateHmacHeaders('POST', pathname, bad, secret, 'bentham-app');
+    const request = new Request(url, { method: 'POST', headers: { ...headers }, body: bad });
+    const result = await verifyServiceRequest(request, options);
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.statusCode).toBe(400);
+      expect(result.error).toBe('Invalid JSON');
+    }
   });
 });
