@@ -75,7 +75,13 @@ export function verifyHmacSignature(req: VerifyHmacRequest, options: VerifyHmacO
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(timestamp)) > maxAgeSeconds) {
+  const timestampSeconds = Number(timestamp);
+  // A non-numeric timestamp yields NaN, and `NaN > maxAgeSeconds` is false — so
+  // without this guard such a signature would never expire. Reject it outright.
+  if (!Number.isFinite(timestampSeconds)) {
+    return { valid: false, error: 'Invalid timestamp', statusCode: 401 };
+  }
+  if (Math.abs(now - timestampSeconds) > maxAgeSeconds) {
     return { valid: false, error: 'Request expired', statusCode: 401 };
   }
 
@@ -92,6 +98,77 @@ export function verifyHmacSignature(req: VerifyHmacRequest, options: VerifyHmacO
   }
 
   return { valid: true };
+}
+
+export interface VerifyServiceRequestOptions {
+  /** The HMAC shared secret */
+  secret: string;
+  /** List of allowed service IDs */
+  allowedServices: string[];
+  /** Max age of request in seconds (default: 300) */
+  maxAgeSeconds?: number;
+}
+
+export type VerifyServiceRequestResult<TBody = unknown> =
+  | { valid: true; rawBody: string; body: TBody | undefined }
+  | { valid: false; statusCode: 400 | 401 | 403; error: string };
+
+/**
+ * Verify a signed service-to-service request end to end.
+ *
+ * Reads the raw body, extracts the HMAC headers, verifies the signature and
+ * parses the JSON body — the whole job each caller used to re-implement around
+ * `verifyHmacSignature`. Takes a standard Fetch API `Request` (Next.js
+ * `NextRequest` extends it), so this stays Next.js-free.
+ *
+ * Never throws: callers map the typed failure to their own error types.
+ *
+ * - An empty body (e.g. a GET) parses to `undefined`.
+ * - Invalid JSON on a non-empty body is a 400.
+ * - Signature/header/service/timestamp failures carry the 401/403 from
+ *   `verifyHmacSignature`.
+ */
+export async function verifyServiceRequest<TBody = unknown>(
+  request: Request,
+  options: VerifyServiceRequestOptions,
+): Promise<VerifyServiceRequestResult<TBody>> {
+  const rawBody = await request.text();
+
+  const result = verifyHmacSignature(
+    {
+      method: request.method,
+      path: new URL(request.url).pathname,
+      body: rawBody,
+      headers: {
+        'x-service-id': request.headers.get('x-service-id') || undefined,
+        'x-timestamp': request.headers.get('x-timestamp') || undefined,
+        'x-signature': request.headers.get('x-signature') || undefined,
+      },
+    },
+    options,
+  );
+
+  if (!result.valid) {
+    // verifyHmacSignature only ever returns 401 or 403 here.
+    return {
+      valid: false,
+      statusCode: (result.statusCode as 401 | 403) ?? 401,
+      error: result.error ?? 'Invalid signature',
+    };
+  }
+
+  if (rawBody.length === 0) {
+    return { valid: true, rawBody, body: undefined };
+  }
+
+  let body: TBody;
+  try {
+    body = JSON.parse(rawBody) as TBody;
+  } catch {
+    return { valid: false, statusCode: 400, error: 'Invalid JSON' };
+  }
+
+  return { valid: true, rawBody, body };
 }
 
 export interface HmacAuthMiddlewareOptions {
