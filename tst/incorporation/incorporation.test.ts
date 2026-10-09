@@ -201,3 +201,60 @@ describe('calculateLlpCost', () => {
     expect(result.items[2]!.amount).toBe(10000);
   });
 });
+
+describe('calculateIncorporationCost with existingDscCount', () => {
+  const base = calculateIncorporationCost('TELANGANA', 2);
+  const dsc = (r: ReturnType<typeof calculateIncorporationCost>) => r.items.find((i) => i.id === 'dsc')!;
+
+  it('is unchanged when the option is omitted, empty or 0', () => {
+    expect(calculateIncorporationCost('TELANGANA', 2, undefined, {})).toEqual(base);
+    expect(calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: 0 })).toEqual(base);
+    expect(dsc(base).label).toBe('DSC Fee (₹2,250 × 2 directors)');
+  });
+
+  it('charges only the directors without an existing DSC', () => {
+    const r = calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: 1 });
+    expect(dsc(r).amount).toBe(2250);
+    expect(dsc(r).label).toBe('DSC Fee (₹2,250 × 1 director, 1 existing DSC)');
+    expect(r.totalAmount).toBe(base.totalAmount - 2250);
+  });
+
+  it('charges no DSC fee when every director has one', () => {
+    const r = calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: 2 });
+    expect(dsc(r).amount).toBe(0);
+    expect(dsc(r).label).toBe('DSC Fee (₹2,250 × 0 directors, 2 existing DSCs)');
+    expect(r.totalAmount).toBe(base.totalAmount - 4500);
+  });
+
+  it('caps a count above the director count and ignores a negative count', () => {
+    expect(calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: 5 })).toEqual(
+      calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: 2 })
+    );
+    expect(calculateIncorporationCost('TELANGANA', 2, undefined, { existingDscCount: -3 })).toEqual(base);
+  });
+});
+
+describe('calculateLlpCost with existingDscCount', () => {
+  const base = calculateLlpCost(2);
+  const dsc = (r: ReturnType<typeof calculateLlpCost>) => r.items.find((i) => i.id === 'dsc')!;
+
+  it('is unchanged when the option is omitted, empty or 0', () => {
+    expect(calculateLlpCost(2, undefined, {})).toEqual(base);
+    expect(calculateLlpCost(2, undefined, { existingDscCount: 0 })).toEqual(base);
+  });
+
+  it('charges only the partners without an existing DSC, and nothing when all have one', () => {
+    const some = calculateLlpCost(2, undefined, { existingDscCount: 1 });
+    expect(dsc(some).amount).toBe(2250);
+    expect(dsc(some).label).toBe('DSC Fee (₹2,250 × 1 partner, 1 existing DSC)');
+    const all = calculateLlpCost(2, undefined, { existingDscCount: 2 });
+    expect(dsc(all).amount).toBe(0);
+    expect(dsc(all).label).toBe('DSC Fee (₹2,250 × 0 partners, 2 existing DSCs)');
+    expect(all.totalAmount).toBe(base.totalAmount - 4500);
+  });
+
+  it('caps a count above the partner count and ignores a negative count', () => {
+    expect(calculateLlpCost(2, undefined, { existingDscCount: 9 })).toEqual(calculateLlpCost(2, undefined, { existingDscCount: 2 }));
+    expect(calculateLlpCost(2, undefined, { existingDscCount: -1 })).toEqual(base);
+  });
+});
