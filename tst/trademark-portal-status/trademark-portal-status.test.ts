@@ -2,6 +2,7 @@ import {
   TrademarkPortalStatusValue,
   TRADEMARK_PORTAL_STATUSES,
   normalizeTrademarkPortalStatus,
+  type TrademarkPortalStatusRow,
 } from '../../src/trademark-portal-status';
 
 describe('TrademarkPortalStatusValue', () => {
@@ -55,5 +56,45 @@ describe('normalizeTrademarkPortalStatus', () => {
     expect(normalizeTrademarkPortalStatus('   ')).toBeNull();
     // @ts-expect-error — guard against a nullish label reaching the normalizer at runtime
     expect(normalizeTrademarkPortalStatus(undefined)).toBeNull();
+  });
+});
+
+describe('TrademarkPortalStatusRow addressed-tracking contract', () => {
+  // Compile-time guard: the served row carries the addressed/addressedAt/addressedBy
+  // triple both halves of the "track addressed status changes" feature depend on. A
+  // regression that drops a field (or changes its type) fails `tsc` here, before it
+  // can silently diverge the app and the digest.
+  it('carries addressed (boolean) + addressedAt / addressedBy (string | null)', () => {
+    const addressed: TrademarkPortalStatusRow = {
+      applicationNumber: 'TM-1',
+      temporaryApplicationNumber: null,
+      formType: 'TM-A',
+      classNumber: 9,
+      filingDate: '01/01/2026',
+      applicationType: 'Fresh',
+      applicationReferenceNumber: null,
+      applicationStatus: 'Objected',
+      normalizedStatus: 'objected',
+      previousStatus: 'Under Examination',
+      statusChangedAt: '2026-01-02T00:00:00.000Z',
+      applicationDoc: null,
+      lastSyncedAt: '2026-01-02T00:00:00.000Z',
+      addressed: true,
+      addressedAt: '2026-01-02T10:00:00.000Z',
+      addressedBy: 'admin-user-id',
+    };
+    const unaddressed: TrademarkPortalStatusRow = {
+      ...addressed,
+      addressed: false,
+      addressedAt: null,
+      addressedBy: null,
+    };
+
+    expect(addressed.addressed).toBe(true);
+    expect(addressed.addressedAt).toBe('2026-01-02T10:00:00.000Z');
+    expect(addressed.addressedBy).toBe('admin-user-id');
+    expect(unaddressed.addressed).toBe(false);
+    expect(unaddressed.addressedAt).toBeNull();
+    expect(unaddressed.addressedBy).toBeNull();
   });
 });
