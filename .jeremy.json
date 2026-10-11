@@ -1,0 +1,8 @@
+{
+  "verify": [
+    "npx tsc --noEmit",
+    "npm test",
+    "go build ./... && go vet ./..."
+  ],
+  "generated": []
+}
