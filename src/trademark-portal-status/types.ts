@@ -68,6 +68,20 @@ export interface TrademarkPortalStatusRow {
   applicationDoc: string | null;
   /** When this row was last synced (ISO 8601). */
   lastSyncedAt: string;
+  /**
+   * Whether the legal team has handled the row's CURRENT status. A row is
+   * unaddressed when first discovered and auto-resets to unaddressed on every
+   * subsequent status change (Option A), so "addressed" always refers to the
+   * status currently shown — never a stale earlier one. Maintained by the app
+   * (the ingest resets it on a real transition; an admin sets it via the
+   * mark-as-addressed endpoint); the sync job never produces it, so it is absent
+   * from the ingest row.
+   */
+  addressed: boolean;
+  /** When the row was last marked addressed (ISO 8601), or null while unaddressed. */
+  addressedAt: string | null;
+  /** The id of the admin who last marked it addressed, or null while unaddressed. */
+  addressedBy: string | null;
 }
 
 /** The read API response served to the read side. */
