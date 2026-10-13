@@ -11,7 +11,24 @@ export interface FeeBreakdown {
   companyType: CompanyType;
   items: FeeItem[];
   totalAmount: number;
-  metadata?: { authorizedCapital: number; directorCount: number };
+  metadata?: { authorizedCapital: number; directorCount: number; waivedDscCount: number };
+}
+
+/**
+ * waivedDscCount is required so every caller decides on the DSC waiver
+ * (directors who already hold a DSC). Pass 0 when there is no application.
+ */
+export interface IncorporationCostInput {
+  state?: string;
+  directorCount?: number;
+  authorizedCapital?: number;
+  waivedDscCount: number;
+}
+
+export interface LlpCostInput {
+  partnerCount?: number;
+  contribution?: number;
+  waivedDscCount: number;
 }
 
 export type AoaFormula =

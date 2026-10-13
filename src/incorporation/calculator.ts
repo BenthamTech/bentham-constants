@@ -2,7 +2,7 @@ import stampDutyConfig from './stamp-duty-config.json';
 import pricingConfig from './pricing-config.json';
 import llpPricingConfig from './llp-pricing-config.json';
 import { CompanyType } from './company-types';
-import type { AoaFormula, FeeBreakdown, FeeItem, StateStampDutyEntry } from './types';
+import type { AoaFormula, FeeBreakdown, FeeItem, IncorporationCostInput, LlpCostInput, StateStampDutyEntry } from './types';
 
 const states = stampDutyConfig as Record<string, StateStampDutyEntry>;
 
@@ -43,12 +43,27 @@ export function calculateStampDuty(state: string, authorizedCapital: number): nu
   return result;
 }
 
-export function calculateIncorporationCost(
-  state?: string,
+/** Number of DSC fees waived: a whole number from 0 up to the people being charged for. */
+function clampWaivedDscCount(waivedDscCount: number, count: number): number {
+  if (!Number.isFinite(waivedDscCount)) return 0;
+  return Math.min(Math.max(0, Math.floor(waivedDscCount)), count);
+}
+
+function dscFeeItem(feePerPerson: number, count: number, waived: number, noun: 'director' | 'partner'): FeeItem {
+  const charged = count - waived;
+  const base = `₹${feePerPerson.toLocaleString('en-IN')} × ${charged} ${noun}${charged === 1 ? '' : 's'}`;
+  const waiver = waived > 0 ? `; ${waived} already ${waived === 1 ? 'has' : 'have'} a DSC` : '';
+  return { id: 'dsc', label: `DSC Fee (${base}${waiver})`, amount: feePerPerson * charged };
+}
+
+export function calculateIncorporationCost({
+  state,
   directorCount = pricingConfig.defaultDirectorCount,
-  authorizedCapital = pricingConfig.defaultAuthorizedCapital
-): FeeBreakdown {
+  authorizedCapital = pricingConfig.defaultAuthorizedCapital,
+  waivedDscCount,
+}: IncorporationCostInput): FeeBreakdown {
   const validDirectors = Math.min(Math.max(1, directorCount), 100);
+  const waived = clampWaivedDscCount(waivedDscCount, validDirectors);
   const stampDuty = state ? calculateStampDuty(state, authorizedCapital) : pricingConfig.defaultStampDuty;
 
   const governmentChildren: FeeItem[] = [
@@ -58,19 +73,19 @@ export function calculateIncorporationCost(
   ];
   const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
 
-  const dscFee = pricingConfig.dscFeePerDirector * validDirectors;
+  const dsc = dscFeeItem(pricingConfig.dscFeePerDirector, validDirectors, waived, 'director');
 
   const items: FeeItem[] = [
     { id: 'government', label: 'Government Fee', amount: governmentFee, children: governmentChildren },
-    { id: 'dsc', label: `DSC Fee (₹${pricingConfig.dscFeePerDirector.toLocaleString('en-IN')} × ${validDirectors} director${validDirectors > 1 ? 's' : ''})`, amount: dscFee },
+    dsc,
     { id: 'service', label: 'Service Fee (incl. CA/CS)', amount: pricingConfig.serviceFee },
   ];
 
   return {
     companyType: CompanyType.PRIVATE_LIMITED,
     items,
-    totalAmount: governmentFee + dscFee + pricingConfig.serviceFee,
-    metadata: { authorizedCapital, directorCount: validDirectors },
+    totalAmount: governmentFee + dsc.amount + pricingConfig.serviceFee,
+    metadata: { authorizedCapital, directorCount: validDirectors, waivedDscCount: waived },
   };
 }
 
@@ -83,11 +98,13 @@ export function calculateLlpStampDuty(contribution: number): number {
   return calculateAoa(formula, contribution);
 }
 
-export function calculateLlpCost(
+export function calculateLlpCost({
   partnerCount = llpPricingConfig.defaultPartnerCount,
-  contribution = llpPricingConfig.defaultContribution
-): FeeBreakdown {
+  contribution = llpPricingConfig.defaultContribution,
+  waivedDscCount,
+}: LlpCostInput): FeeBreakdown {
   const validPartners = Math.min(Math.max(1, partnerCount), 100);
+  const waived = clampWaivedDscCount(waivedDscCount, validPartners);
   const stampDuty = calculateLlpStampDuty(contribution);
 
   const governmentChildren: FeeItem[] = [
@@ -97,19 +114,19 @@ export function calculateLlpCost(
   ];
   const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
 
-  const dscFee = llpPricingConfig.dscFeePerDirector * validPartners;
+  const dsc = dscFeeItem(llpPricingConfig.dscFeePerDirector, validPartners, waived, 'partner');
 
   const items: FeeItem[] = [
     { id: 'government', label: 'Government Fee', amount: governmentFee, children: governmentChildren },
-    { id: 'dsc', label: `DSC Fee (₹${llpPricingConfig.dscFeePerDirector.toLocaleString('en-IN')} × ${validPartners} partner${validPartners > 1 ? 's' : ''})`, amount: dscFee },
+    dsc,
     { id: 'service', label: 'Service Fee (incl. CA/CS)', amount: llpPricingConfig.serviceFee },
   ];
 
   return {
     companyType: CompanyType.LLP,
     items,
-    totalAmount: governmentFee + dscFee + llpPricingConfig.serviceFee,
-    metadata: { authorizedCapital: contribution, directorCount: validPartners },
+    totalAmount: governmentFee + dsc.amount + llpPricingConfig.serviceFee,
+    metadata: { authorizedCapital: contribution, directorCount: validPartners, waivedDscCount: waived },
   };
 }
 

@@ -64,26 +64,26 @@ describe('calculateStampDuty', () => {
 
 describe('calculateIncorporationCost', () => {
   it('returns correct structure', () => {
-    const result = calculateIncorporationCost('TELANGANA');
+    const result = calculateIncorporationCost({ state: 'TELANGANA', waivedDscCount: 0 });
     expect(result.companyType).toBe('PRIVATE_LIMITED');
     expect(result.items).toHaveLength(3);
     expect(result.items[0]!.id).toBe('government');
     expect(result.items[0]!.children).toHaveLength(3);
     expect(result.items[1]!.id).toBe('dsc');
     expect(result.items[2]!.id).toBe('service');
-    expect(result.metadata).toEqual({ authorizedCapital: 1000000, directorCount: 2 });
+    expect(result.metadata).toEqual({ authorizedCapital: 1000000, directorCount: 2, waivedDscCount: 0 });
   });
 
   it('uses defaults when no args', () => {
-    const result = calculateIncorporationCost();
+    const result = calculateIncorporationCost({ waivedDscCount: 0 });
     expect(result.totalAmount).toBe(1000 + 143 + 1500 + 4500 + 3000); // defaultStampDuty since no state
-    expect(result.metadata).toEqual({ authorizedCapital: 1000000, directorCount: 2 });
+    expect(result.metadata).toEqual({ authorizedCapital: 1000000, directorCount: 2, waivedDscCount: 0 });
   });
 
   it('clamps directorCount to [1, 100]', () => {
-    const r1 = calculateIncorporationCost('SIKKIM', 0);
+    const r1 = calculateIncorporationCost({ state: 'SIKKIM', directorCount: 0, waivedDscCount: 0 });
     expect(r1.metadata!.directorCount).toBe(1);
-    const r2 = calculateIncorporationCost('SIKKIM', 200);
+    const r2 = calculateIncorporationCost({ state: 'SIKKIM', directorCount: 200, waivedDscCount: 0 });
     expect(r2.metadata!.directorCount).toBe(100);
   });
 
@@ -91,12 +91,43 @@ describe('calculateIncorporationCost', () => {
     const states = getAvailableStates();
     expect(states).toHaveLength(37);
     for (const state of states) {
-      const result = calculateIncorporationCost(state);
+      const result = calculateIncorporationCost({ state, waivedDscCount: 0 });
       const expected = (expectedCosts as Record<string, { totalAmount: number; stampDuty: number }>)[state];
       expect(expected).toBeDefined();
       expect(result.totalAmount).toBe(expected!.totalAmount);
       expect(result.items[0]!.children![2]!.amount).toBe(expected!.stampDuty);
     }
+  });
+
+  describe('DSC waiver', () => {
+    const full = calculateIncorporationCost({ state: 'TELANGANA', directorCount: 3, waivedDscCount: 0 });
+
+    it('leaves the breakdown unchanged when nothing is waived', () => {
+      expect(full.items[1]).toEqual({ id: 'dsc', label: 'DSC Fee (₹2,250 × 3 directors)', amount: 6750 });
+    });
+
+    it('charges only directors without a DSC and says so in the label', () => {
+      const r = calculateIncorporationCost({ state: 'TELANGANA', directorCount: 3, waivedDscCount: 1 });
+      expect(r.items[1]).toEqual({ id: 'dsc', label: 'DSC Fee (₹2,250 × 2 directors; 1 already has a DSC)', amount: 4500 });
+      expect(r.totalAmount).toBe(full.totalAmount - 2250);
+      expect(r.metadata!.waivedDscCount).toBe(1);
+    });
+
+    it('keeps a ₹0 DSC line when every director is waived', () => {
+      const r = calculateIncorporationCost({ state: 'TELANGANA', directorCount: 2, waivedDscCount: 2 });
+      expect(r.items[1]).toEqual({ id: 'dsc', label: 'DSC Fee (₹2,250 × 0 directors; 2 already have a DSC)', amount: 0 });
+    });
+
+    it('caps the waiver at the director count', () => {
+      const r = calculateIncorporationCost({ state: 'TELANGANA', directorCount: 2, waivedDscCount: 5 });
+      expect(r.items[1]!.amount).toBe(0);
+      expect(r.metadata!.waivedDscCount).toBe(2);
+    });
+
+    it('treats a negative or non-finite waiver as 0', () => {
+      expect(calculateIncorporationCost({ directorCount: 2, waivedDscCount: -1 }).metadata!.waivedDscCount).toBe(0);
+      expect(calculateIncorporationCost({ directorCount: 2, waivedDscCount: NaN }).metadata!.waivedDscCount).toBe(0);
+    });
   });
 });
 
@@ -148,18 +179,18 @@ describe('calculateLlpStampDuty', () => {
 
 describe('calculateLlpCost', () => {
   it('returns correct structure', () => {
-    const result = calculateLlpCost();
+    const result = calculateLlpCost({ waivedDscCount: 0 });
     expect(result.companyType).toBe('LLP');
     expect(result.items).toHaveLength(3);
     expect(result.items[0]!.id).toBe('government');
     expect(result.items[0]!.children).toHaveLength(3);
     expect(result.items[1]!.id).toBe('dsc');
     expect(result.items[2]!.id).toBe('service');
-    expect(result.metadata).toEqual({ authorizedCapital: 100000, directorCount: 2 });
+    expect(result.metadata).toEqual({ authorizedCapital: 100000, directorCount: 2, waivedDscCount: 0 });
   });
 
   it('uses defaults when no args (2 partners, ₹1L contribution)', () => {
-    const result = calculateLlpCost();
+    const result = calculateLlpCost({ waivedDscCount: 0 });
     // govt: 200 + 143 + 500 = 843
     // dsc: 2250 * 2 = 4500
     // service: 10000
@@ -167,16 +198,16 @@ describe('calculateLlpCost', () => {
   });
 
   it('scales DSC fee with partner count', () => {
-    const r2 = calculateLlpCost(2);
-    const r3 = calculateLlpCost(3);
+    const r2 = calculateLlpCost({ partnerCount: 2, waivedDscCount: 0 });
+    const r3 = calculateLlpCost({ partnerCount: 3, waivedDscCount: 0 });
     expect(r3.totalAmount - r2.totalAmount).toBe(2250);
   });
 
   it('stamp duty changes with contribution amount', () => {
-    const r1 = calculateLlpCost(2, 100000);   // stamp: 500
-    const r2 = calculateLlpCost(2, 500000);   // stamp: 2000
-    const r3 = calculateLlpCost(2, 1000000);  // stamp: 4000
-    const r4 = calculateLlpCost(2, 5000000);  // stamp: 5000
+    const r1 = calculateLlpCost({ partnerCount: 2, contribution: 100000, waivedDscCount: 0 });   // stamp: 500
+    const r2 = calculateLlpCost({ partnerCount: 2, contribution: 500000, waivedDscCount: 0 });   // stamp: 2000
+    const r3 = calculateLlpCost({ partnerCount: 2, contribution: 1000000, waivedDscCount: 0 });  // stamp: 4000
+    const r4 = calculateLlpCost({ partnerCount: 2, contribution: 5000000, waivedDscCount: 0 });  // stamp: 5000
 
     expect(r1.items[0]!.children![2]!.amount).toBe(500);
     expect(r2.items[0]!.children![2]!.amount).toBe(2000);
@@ -185,19 +216,34 @@ describe('calculateLlpCost', () => {
   });
 
   it('clamps partnerCount to [1, 100]', () => {
-    const r1 = calculateLlpCost(0);
+    const r1 = calculateLlpCost({ partnerCount: 0, waivedDscCount: 0 });
     expect(r1.metadata!.directorCount).toBe(1);
-    const r2 = calculateLlpCost(200);
+    const r2 = calculateLlpCost({ partnerCount: 200, waivedDscCount: 0 });
     expect(r2.metadata!.directorCount).toBe(100);
   });
 
   it('name filing fee is ₹200 (not ₹1000 like company)', () => {
-    const result = calculateLlpCost();
+    const result = calculateLlpCost({ waivedDscCount: 0 });
     expect(result.items[0]!.children![0]!.amount).toBe(200);
   });
 
   it('service fee is ₹10,000', () => {
-    const result = calculateLlpCost();
+    const result = calculateLlpCost({ waivedDscCount: 0 });
     expect(result.items[2]!.amount).toBe(10000);
+  });
+
+  describe('DSC waiver', () => {
+    it('charges only partners without a DSC', () => {
+      const full = calculateLlpCost({ partnerCount: 3, waivedDscCount: 0 });
+      const r = calculateLlpCost({ partnerCount: 3, waivedDscCount: 2 });
+      expect(r.items[1]).toEqual({ id: 'dsc', label: 'DSC Fee (₹2,250 × 1 partner; 2 already have a DSC)', amount: 2250 });
+      expect(r.totalAmount).toBe(full.totalAmount - 4500);
+    });
+
+    it('caps the waiver at the partner count', () => {
+      const r = calculateLlpCost({ partnerCount: 2, waivedDscCount: 3 });
+      expect(r.items[1]!.amount).toBe(0);
+      expect(r.metadata!.waivedDscCount).toBe(2);
+    });
   });
 });
