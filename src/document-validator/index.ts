@@ -92,11 +92,36 @@ export interface AadhaarExtractedData {
   address: AddressProofAddress;
 }
 
+// --- COI (Certificate of Incorporation) extraction ---
+export interface CoiExtractedData {
+  registrationNumber: string | null; // CIN or LLPIN, normalised
+  companyName: string | null;
+  incorporationDate: string | null; // YYYY-MM-DD; null unless it passed the validator's date checks
+}
+
+export type CoiWarning =
+  | 'DATE_INVALID' // date unparseable, in the future or before 1850
+  | 'DATE_UNVERIFIED'; // no valid CIN/LLPIN, or the CIN year doesn't match the date
+
+export type CoiRejection =
+  | 'UNSUPPORTED_FILE_TYPE' // not a PDF, JPEG or PNG
+  | 'PASSWORD_PROTECTED'
+  | 'UNREADABLE' // corrupt PDF
+  | 'NOT_COI';
+
+export interface CoiValidationResult {
+  isValid: boolean;
+  rejection?: CoiRejection; // when isValid === false
+  extractedData?: CoiExtractedData; // when isValid === true
+  warnings?: CoiWarning[];
+}
+
 // --- Endpoint paths (single source of truth) ---
 export const DOCUMENT_VALIDATOR_PATHS = {
   verifyDsc: '/api/v1/validate/verify-dsc',
-  geotag: '/api/validate/geotag',
-  pan: '/api/validate/pan',
-  aadhaar: '/api/validate/aadhaar',
-  addressProof: '/api/validate/utility-bill',
+  coi: '/api/v1/validate/coi',
+  geotag: '/api/v1/validate/geotag',
+  pan: '/api/v1/validate/pan',
+  aadhaar: '/api/v1/validate/aadhaar',
+  addressProof: '/api/v1/validate/utility-bill',
 } as const;

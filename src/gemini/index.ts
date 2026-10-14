@@ -1,10 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { gcpProject, geminiConfig } from "../config/index";
 
+/** A file sent to Gemini alongside the prompt (e.g. a PDF or image to read). */
+export interface GeminiFile {
+  data: Buffer;
+  mimeType: string;
+}
+
 export interface GeminiOptions {
   temperature?: number;
   maxOutputTokens?: number;
   modelId?: string;
+  /** Files sent as inline parts after the prompt. */
+  files?: GeminiFile[];
 }
 
 let genAIInstance: GoogleGenAI | null = null;
@@ -20,10 +28,20 @@ function getClient(): GoogleGenAI {
   return genAIInstance;
 }
 
+/** The prompt as a text part, followed by one inline part per file. */
+function buildParts(prompt: string, files: GeminiFile[] = []) {
+  return [
+    { text: prompt },
+    ...files.map((file) => ({
+      inlineData: { data: file.data.toString("base64"), mimeType: file.mimeType },
+    })),
+  ];
+}
+
 /**
  * Generate text content from a prompt using Gemini.
  * @param prompt - The input prompt
- * @param options - Optional temperature, maxOutputTokens, modelId override
+ * @param options - Optional temperature, maxOutputTokens, modelId override, files
  * @returns The generated text (trimmed)
  */
 export async function generateContent(
@@ -35,7 +53,7 @@ export async function generateContent(
 
   const result = await client.models.generateContent({
     model: modelId,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    contents: [{ role: "user", parts: buildParts(prompt, options.files) }],
     config: {
       temperature: options.temperature ?? 0,
       maxOutputTokens: options.maxOutputTokens ?? 2048,
@@ -49,7 +67,7 @@ export async function generateContent(
  * Generate content and parse the response as JSON.
  * Throws if the response is empty or not valid JSON.
  * @param prompt - The input prompt
- * @param options - Optional temperature, maxOutputTokens, modelId override
+ * @param options - Optional temperature, maxOutputTokens, modelId override, files
  * @returns Parsed JSON object
  */
 export async function generateJson<T = unknown>(
@@ -61,7 +79,7 @@ export async function generateJson<T = unknown>(
 
   const result = await client.models.generateContent({
     model: modelId,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    contents: [{ role: "user", parts: buildParts(prompt, options.files) }],
     config: {
       temperature: options.temperature ?? 0,
       maxOutputTokens: options.maxOutputTokens ?? 2048,

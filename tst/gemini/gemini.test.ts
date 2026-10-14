@@ -63,6 +63,27 @@ describe('generateContent', () => {
     );
   });
 
+  it('sends files as inlineData parts after the prompt', async () => {
+    mockGenerateContent.mockResolvedValue({ text: 'ok' });
+    const image = Buffer.from([0xff, 0xd8, 0xff]);
+
+    await generateContent('describe', { files: [{ data: image, mimeType: 'image/jpeg' }] });
+
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: 'describe' },
+              { inlineData: { data: image.toString('base64'), mimeType: 'image/jpeg' } },
+            ],
+          },
+        ],
+      }),
+    );
+  });
+
   it('propagates API errors to caller', async () => {
     mockGenerateContent.mockRejectedValue(new Error('QUOTA_EXCEEDED'));
 
@@ -117,6 +138,46 @@ describe('generateJson', () => {
     mockGenerateContent.mockRejectedValue(new Error('NOT_FOUND'));
 
     await expect(generateJson('prompt')).rejects.toThrow('NOT_FOUND');
+  });
+
+  it('sends each file as a base64 inlineData part after the prompt', async () => {
+    mockGenerateContent.mockResolvedValue({ text: '{}' });
+    const pdf = Buffer.from('%PDF-1.4 fake');
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    await generateJson('read this', {
+      files: [
+        { data: pdf, mimeType: 'application/pdf' },
+        { data: png, mimeType: 'image/png' },
+      ],
+    });
+
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: 'read this' },
+              { inlineData: { data: pdf.toString('base64'), mimeType: 'application/pdf' } },
+              { inlineData: { data: png.toString('base64'), mimeType: 'image/png' } },
+            ],
+          },
+        ],
+      }),
+    );
+  });
+
+  it('sends only the prompt part when files is empty', async () => {
+    mockGenerateContent.mockResolvedValue({ text: '{}' });
+
+    await generateJson('prompt', { files: [] });
+
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [{ role: 'user', parts: [{ text: 'prompt' }] }],
+      }),
+    );
   });
 });
 

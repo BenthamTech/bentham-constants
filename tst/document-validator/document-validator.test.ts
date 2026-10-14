@@ -1,0 +1,13 @@
+import { DOCUMENT_VALIDATOR_PATHS } from '../../src/document-validator/index';
+
+describe('DOCUMENT_VALIDATOR_PATHS', () => {
+  it('puts every path under /api/v1/validate, where the validator mounts its router', () => {
+    for (const path of Object.values(DOCUMENT_VALIDATOR_PATHS)) {
+      expect(path).toMatch(/^\/api\/v1\/validate\/[a-z-]+$/);
+    }
+  });
+
+  it('exposes the COI endpoint', () => {
+    expect(DOCUMENT_VALIDATOR_PATHS.coi).toBe('/api/v1/validate/coi');
+  });
+});
