@@ -99,15 +99,17 @@ export interface CoiExtractedData {
   incorporationDate: string | null; // YYYY-MM-DD; null unless it passed the validator's date checks
 }
 
-export type CoiWarning =
-  | 'DATE_INVALID' // date unparseable, in the future or before 1850
-  | 'DATE_UNVERIFIED'; // no valid CIN/LLPIN, or the CIN year doesn't match the date
+export enum CoiWarning {
+  DATE_INVALID = 'DATE_INVALID', // date unparseable, in the future or before 1850
+  DATE_UNVERIFIED = 'DATE_UNVERIFIED', // no valid CIN/LLPIN, or the CIN year doesn't match the date
+}
 
-export type CoiRejection =
-  | 'UNSUPPORTED_FILE_TYPE' // not a PDF, JPEG or PNG
-  | 'PASSWORD_PROTECTED'
-  | 'UNREADABLE' // corrupt PDF
-  | 'NOT_COI';
+export enum CoiRejection {
+  UNSUPPORTED_FILE_TYPE = 'UNSUPPORTED_FILE_TYPE', // not a PDF, JPEG or PNG
+  PASSWORD_PROTECTED = 'PASSWORD_PROTECTED',
+  UNREADABLE = 'UNREADABLE', // corrupt PDF, or OCR found no text
+  NOT_COI = 'NOT_COI',
+}
 
 export interface CoiValidationResult {
   isValid: boolean;
