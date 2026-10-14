@@ -118,6 +118,18 @@ export interface CoiValidationResult {
   warnings?: CoiWarning[];
 }
 
+// --- Errors ---
+// `data.code` on a failed response from the shared fetch and OCR stages, so
+// not specific to one document type.
+export enum DocumentValidatorErrorCode {
+  DOWNLOAD_FAILED = 'DOWNLOAD_FAILED', // 400: storage refused the signed URL
+  UPSTREAM_UNAVAILABLE = 'UPSTREAM_UNAVAILABLE', // 502: storage, OCR or Gemini unavailable
+}
+
+export interface DocumentValidatorErrorData {
+  code: DocumentValidatorErrorCode;
+}
+
 // --- Endpoint paths (single source of truth) ---
 export const DOCUMENT_VALIDATOR_PATHS = {
   verifyDsc: '/api/v1/validate/verify-dsc',
