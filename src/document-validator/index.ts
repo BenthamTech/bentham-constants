@@ -57,6 +57,8 @@ export interface AddressProofValidationResponse {
   failureReason?: AddressProofFailureReason;
   extractedData?: {
     personName?: string;
+    /** Name the document is issued to, whether a person or a company/entity. */
+    holderName?: string;
     address?: AddressProofAddress;
     issueDate?: string;
     documentType?: string;
