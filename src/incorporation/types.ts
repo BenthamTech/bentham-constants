@@ -1,16 +1,11 @@
 import { CompanyType } from './company-types';
+import type { FeeLines } from '../fees';
 
-export interface FeeItem {
-  id: string;
-  label: string;
-  amount: number;
-  children?: FeeItem[];
-}
+/** Re-exported for existing importers; the source is `@bentham/constants/fees`. */
+export type { FeeItem, FeeItemId } from '../fees';
 
-export interface FeeBreakdown {
+export interface FeeBreakdown extends FeeLines {
   companyType: CompanyType;
-  items: FeeItem[];
-  totalAmount: number;
   metadata?: { authorizedCapital: number; directorCount: number; waivedDscCount: number };
 }
 
