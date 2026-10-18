@@ -15,6 +15,26 @@ export interface FeeBreakdown {
 }
 
 /**
+ * Ids of the top-level fee lines shared across products. SERVICE marks Bentham's
+ * own fee, the line `fetchServiceFee` reads; every fee breakdown (incorporation,
+ * trademark, requests) writes its service line with this id.
+ */
+export const FEE_ITEM_ID = {
+  GOVERNMENT: 'government',
+  DSC: 'dsc',
+  SERVICE: 'service',
+} as const;
+
+/**
+ * Bentham's service fee in a fee breakdown: the amount of its top-level SERVICE
+ * line, or undefined if it has none. Takes any breakdown with `items`, so it reads
+ * trademark and request breakdowns too, not only incorporation's.
+ */
+export function fetchServiceFee(breakdown: { items: readonly FeeItem[] }): number | undefined {
+  return breakdown.items.find((item) => item.id === FEE_ITEM_ID.SERVICE)?.amount;
+}
+
+/**
  * waivedDscCount is required so every caller decides on the DSC waiver
  * (directors who already hold a DSC). Pass 0 when there is no application.
  */

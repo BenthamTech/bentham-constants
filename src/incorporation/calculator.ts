@@ -3,6 +3,7 @@ import pricingConfig from './pricing-config.json';
 import llpPricingConfig from './llp-pricing-config.json';
 import { CompanyType } from './company-types';
 import type { AoaFormula, FeeBreakdown, FeeItem, IncorporationCostInput, LlpCostInput, StateStampDutyEntry } from './types';
+import { FEE_ITEM_ID } from './types';
 
 const states = stampDutyConfig as Record<string, StateStampDutyEntry>;
 
@@ -53,7 +54,7 @@ function dscFeeItem(feePerPerson: number, count: number, waived: number, noun: '
   const charged = count - waived;
   const base = `₹${feePerPerson.toLocaleString('en-IN')} × ${charged} ${noun}${charged === 1 ? '' : 's'}`;
   const waiver = waived > 0 ? `; ${waived} already ${waived === 1 ? 'has' : 'have'} a DSC` : '';
-  return { id: 'dsc', label: `DSC Fee (${base}${waiver})`, amount: feePerPerson * charged };
+  return { id: FEE_ITEM_ID.DSC, label: `DSC Fee (${base}${waiver})`, amount: feePerPerson * charged };
 }
 
 export function calculateIncorporationCost({
@@ -76,9 +77,9 @@ export function calculateIncorporationCost({
   const dsc = dscFeeItem(pricingConfig.dscFeePerDirector, validDirectors, waived, 'director');
 
   const items: FeeItem[] = [
-    { id: 'government', label: 'Government Fee', amount: governmentFee, children: governmentChildren },
+    { id: FEE_ITEM_ID.GOVERNMENT, label: 'Government Fee', amount: governmentFee, children: governmentChildren },
     dsc,
-    { id: 'service', label: 'Service Fee (incl. CA/CS)', amount: pricingConfig.serviceFee },
+    { id: FEE_ITEM_ID.SERVICE, label: 'Service Fee (incl. CA/CS)', amount: pricingConfig.serviceFee },
   ];
 
   return {
@@ -117,9 +118,9 @@ export function calculateLlpCost({
   const dsc = dscFeeItem(llpPricingConfig.dscFeePerDirector, validPartners, waived, 'partner');
 
   const items: FeeItem[] = [
-    { id: 'government', label: 'Government Fee', amount: governmentFee, children: governmentChildren },
+    { id: FEE_ITEM_ID.GOVERNMENT, label: 'Government Fee', amount: governmentFee, children: governmentChildren },
     dsc,
-    { id: 'service', label: 'Service Fee (incl. CA/CS)', amount: llpPricingConfig.serviceFee },
+    { id: FEE_ITEM_ID.SERVICE, label: 'Service Fee (incl. CA/CS)', amount: llpPricingConfig.serviceFee },
   ];
 
   return {
