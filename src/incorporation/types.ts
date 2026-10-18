@@ -2,7 +2,7 @@ import { CompanyType } from './company-types';
 import type { FeeItem } from '../fees';
 
 /** Re-exported for existing importers; the source is `@bentham/constants/fees`. */
-export type { FeeItem };
+export type { FeeItem, FeeItemId } from '../fees';
 
 export interface FeeBreakdown {
   companyType: CompanyType;

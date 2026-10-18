@@ -68,9 +68,9 @@ export function calculateIncorporationCost({
   const stampDuty = state ? calculateStampDuty(state, authorizedCapital) : pricingConfig.defaultStampDuty;
 
   const governmentChildren: FeeItem[] = [
-    { id: 'name-filing', label: 'Name Filing Fee', amount: pricingConfig.nameFilingFee },
-    { id: 'pan-tan', label: 'PAN + TAN Fee', amount: pricingConfig.panTanCharges },
-    { id: 'stamp-duty', label: state ? `Stamp Duty (${state})` : 'Stamp Duty', amount: stampDuty },
+    { id: FEE_ITEM_ID.NAME_FILING, label: 'Name Filing Fee', amount: pricingConfig.nameFilingFee },
+    { id: FEE_ITEM_ID.PAN_TAN, label: 'PAN + TAN Fee', amount: pricingConfig.panTanCharges },
+    { id: FEE_ITEM_ID.STAMP_DUTY, label: state ? `Stamp Duty (${state})` : 'Stamp Duty', amount: stampDuty },
   ];
   const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
 
@@ -109,9 +109,9 @@ export function calculateLlpCost({
   const stampDuty = calculateLlpStampDuty(contribution);
 
   const governmentChildren: FeeItem[] = [
-    { id: 'name-filing', label: 'Name Filing Fee (RUN-LLP)', amount: llpPricingConfig.nameFilingFee },
-    { id: 'pan-tan', label: 'PAN + TAN Fee', amount: llpPricingConfig.panTanCharges },
-    { id: 'stamp-duty', label: `Stamp Duty (₹${contribution.toLocaleString('en-IN')} contribution)`, amount: stampDuty },
+    { id: FEE_ITEM_ID.NAME_FILING, label: 'Name Filing Fee (RUN-LLP)', amount: llpPricingConfig.nameFilingFee },
+    { id: FEE_ITEM_ID.PAN_TAN, label: 'PAN + TAN Fee', amount: llpPricingConfig.panTanCharges },
+    { id: FEE_ITEM_ID.STAMP_DUTY, label: `Stamp Duty (₹${contribution.toLocaleString('en-IN')} contribution)`, amount: stampDuty },
   ];
   const governmentFee = governmentChildren.reduce((sum, item) => sum + item.amount, 0);
 
