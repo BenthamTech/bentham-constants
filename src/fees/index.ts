@@ -43,9 +43,19 @@ export interface FeeItem {
 }
 
 /**
+ * A product's fee breakdown as a payment step shows and charges it: the lines and
+ * their total (the amount charged). Products add their own fields on top (see
+ * incorporation's `FeeBreakdown`).
+ */
+export interface FeeLines {
+  items: FeeItem[];
+  totalAmount: number;
+}
+
+/**
  * Bentham's service fee in a fee breakdown: the amount of its top-level SERVICE
  * line, or undefined if it has none. Takes any breakdown with `items`.
  */
-export function fetchServiceFee(breakdown: { items: readonly FeeItem[] }): number | undefined {
+export function fetchServiceFee(breakdown: Pick<FeeLines, 'items'>): number | undefined {
   return breakdown.items.find((item) => item.id === FEE_ITEM_ID.SERVICE)?.amount;
 }
