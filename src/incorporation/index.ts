@@ -1,5 +1,4 @@
 export { calculateStampDuty, calculateIncorporationCost, calculateLlpStampDuty, calculateLlpCost, getAvailableStates, toDisplayName } from './calculator';
-export { FEE_ITEM_ID, fetchServiceFee } from './types';
 export type { FeeItem, FeeBreakdown, AoaFormula, StateStampDutyEntry, IncorporationCostInput, LlpCostInput } from './types';
 export { default as pricingConfig } from './pricing-config.json';
 export { default as llpPricingConfig } from './llp-pricing-config.json';

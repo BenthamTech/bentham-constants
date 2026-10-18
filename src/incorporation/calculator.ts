@@ -3,7 +3,7 @@ import pricingConfig from './pricing-config.json';
 import llpPricingConfig from './llp-pricing-config.json';
 import { CompanyType } from './company-types';
 import type { AoaFormula, FeeBreakdown, FeeItem, IncorporationCostInput, LlpCostInput, StateStampDutyEntry } from './types';
-import { FEE_ITEM_ID } from './types';
+import { FEE_ITEM_ID } from '../fees';
 
 const states = stampDutyConfig as Record<string, StateStampDutyEntry>;
 

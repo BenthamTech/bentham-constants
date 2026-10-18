@@ -1,4 +1,5 @@
-import { calculateIncorporationCost, calculateLlpCost, FEE_ITEM_ID, fetchServiceFee, llpPricingConfig, pricingConfig } from '../../src/incorporation';
+import { FEE_ITEM_ID, fetchServiceFee } from '../../src/fees';
+import { calculateIncorporationCost, calculateLlpCost, llpPricingConfig, pricingConfig } from '../../src/incorporation';
 
 describe('fetchServiceFee', () => {
   it("reads the private limited calculator's service line", () => {

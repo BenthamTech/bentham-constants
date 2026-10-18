@@ -1,37 +1,14 @@
 import { CompanyType } from './company-types';
+import type { FeeItem } from '../fees';
 
-export interface FeeItem {
-  id: string;
-  label: string;
-  amount: number;
-  children?: FeeItem[];
-}
+/** Re-exported for existing importers; the source is `@bentham/constants/fees`. */
+export type { FeeItem };
 
 export interface FeeBreakdown {
   companyType: CompanyType;
   items: FeeItem[];
   totalAmount: number;
   metadata?: { authorizedCapital: number; directorCount: number; waivedDscCount: number };
-}
-
-/**
- * Ids of the top-level fee lines shared across products. SERVICE marks Bentham's
- * own fee, the line `fetchServiceFee` reads; every fee breakdown (incorporation,
- * trademark, requests) writes its service line with this id.
- */
-export const FEE_ITEM_ID = {
-  GOVERNMENT: 'government',
-  DSC: 'dsc',
-  SERVICE: 'service',
-} as const;
-
-/**
- * Bentham's service fee in a fee breakdown: the amount of its top-level SERVICE
- * line, or undefined if it has none. Takes any breakdown with `items`, so it reads
- * trademark and request breakdowns too, not only incorporation's.
- */
-export function fetchServiceFee(breakdown: { items: readonly FeeItem[] }): number | undefined {
-  return breakdown.items.find((item) => item.id === FEE_ITEM_ID.SERVICE)?.amount;
 }
 
 /**
