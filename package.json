@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -120,6 +120,10 @@
     "./document-validator": {
       "types": "./dist/src/document-validator/index.d.ts",
       "default": "./dist/src/document-validator/index.js"
+    },
+    "./filing-webhook": {
+      "types": "./dist/src/filing-webhook/index.d.ts",
+      "default": "./dist/src/filing-webhook/index.js"
     }
   },
   "files": [
