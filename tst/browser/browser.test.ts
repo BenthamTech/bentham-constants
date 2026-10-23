@@ -1,6 +1,9 @@
 import {
   CLOUD_RUN_CHROMIUM_BASE_ARGS,
   DEFAULT_CHROMIUM_LAUNCH_TIMEOUT_MS,
+  DESKTOP_CHROME_USER_AGENT,
+  DESKTOP_CHROME_USER_AGENT_ARG,
+  DESKTOP_FIREFOX_USER_AGENT,
   buildChromiumLaunchOptions,
 } from '../../src/browser';
 
@@ -22,6 +25,29 @@ describe('CLOUD_RUN_CHROMIUM_BASE_ARGS', () => {
     expect(CLOUD_RUN_CHROMIUM_BASE_ARGS).toContain('--no-sandbox');
     expect(CLOUD_RUN_CHROMIUM_BASE_ARGS).toContain('--disable-setuid-sandbox');
     expect(CLOUD_RUN_CHROMIUM_BASE_ARGS).toContain('--disable-dev-shm-usage');
+  });
+});
+
+describe('desktop User-Agent strings', () => {
+  it.each([DESKTOP_CHROME_USER_AGENT, DESKTOP_FIREFOX_USER_AGENT])(
+    '%s starts with Mozilla/5.0',
+    (ua) => {
+      expect(ua.startsWith('Mozilla/5.0 ')).toBe(true);
+    },
+  );
+
+  it('the Chrome UA names a Chrome version', () => {
+    expect(DESKTOP_CHROME_USER_AGENT).toMatch(/ Chrome\/\d+\.0\.0\.0 /);
+  });
+
+  it('keeps the Firefox UA mca-api sends to MCA unchanged', () => {
+    expect(DESKTOP_FIREFOX_USER_AGENT).toBe(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:147.0) Gecko/20100101 Firefox/147.0',
+    );
+  });
+
+  it('builds the launch arg from the Chrome UA', () => {
+    expect(DESKTOP_CHROME_USER_AGENT_ARG).toBe(`--user-agent=${DESKTOP_CHROME_USER_AGENT}`);
   });
 });
 
