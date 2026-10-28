@@ -9,7 +9,7 @@ import { BaseServiceClient, ServiceClientError } from '../http';
 import { serviceUrls } from '../config';
 import { fetchExternal } from '../fetch';
 import { HMAC_ENV_KEYS } from '../env-keys';
-import { acceptAllows, kindForFileName } from '../file-kinds';
+import { acceptAllows, kindForFileName, type FileExtension } from '../file-kinds';
 import {
   SERVICE_MAX_UPLOAD_BYTES,
   StorageUploadPath,
@@ -42,10 +42,10 @@ export interface StorageClientOptions {
 
 export interface UploadFileOptions {
   /**
-   * Extensions this upload may have, as in `<input accept>`: `'.pdf'`.
+   * Extensions this upload may have, e.g. `[FileExtension.PDF]`.
    * Defaults to the file name's own extension, which must be in FILE_KINDS.
    */
-  accept?: string;
+  accept?: readonly FileExtension[];
   /** Largest allowed size in bytes. Defaults to SERVICE_MAX_UPLOAD_BYTES. */
   maxSize?: number;
   /** Timeout for the PUT to GCS. Defaults to 60 s plus 2 s per MiB. */
@@ -132,8 +132,9 @@ export class StorageClient extends BaseServiceClient {
     options: UploadFileOptions = {},
   ): Promise<string> {
     const kind = kindForFileName(fileName);
-    const accept = options.accept ?? kind?.extension ?? '';
-    if (!kind || !acceptAllows(accept, fileName)) {
+    if (!kind) throw refusal(UploadRefusalCode.TYPE_NOT_ALLOWED);
+    const accept = options.accept ?? [kind.extension];
+    if (!acceptAllows(accept, fileName)) {
       throw refusal(UploadRefusalCode.TYPE_NOT_ALLOWED);
     }
 

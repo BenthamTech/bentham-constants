@@ -13,6 +13,8 @@
 // A change here needs a coordinated update in storage-api, the app, mca-api
 // and trademark-api.
 
+import type { FileExtension } from '../file-kinds';
+
 /** Largest file a user can upload in any flow. Each flow sets its own lower limit. */
 export const PLATFORM_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -95,8 +97,8 @@ export interface StorageApiSuccess<T> {
 
 /** What a flow allows. The caller sends it with check and promote, and storage-api enforces exactly that. */
 export interface UploadRules {
-  /** Allowed extensions, as in `<input accept>`: `".pdf,.jpg"`. Each must be in FILE_KINDS. */
-  accept: string;
+  /** Allowed extensions, e.g. `[FileExtension.PDF, FileExtension.JPG]`. At least one. */
+  accept: readonly FileExtension[];
   /** Bytes. At most SERVICE_MAX_UPLOAD_BYTES; user flows stay within PLATFORM_MAX_UPLOAD_BYTES. */
   maxSize: number;
 }

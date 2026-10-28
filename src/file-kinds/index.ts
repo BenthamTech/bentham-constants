@@ -1,4 +1,4 @@
-// The file types Bentham stores, keyed by extension.
+// The file types Bentham stores.
 //
 // One table for every repo: the app's pickers and start route, the content type
 // signed into an upload URL, and storage-api's content check all read it, so
@@ -6,40 +6,51 @@
 //
 // Pure TypeScript with no Node or zod imports: browser bundles use it too.
 
+/** Every extension Bentham stores. Use these instead of string literals. */
+export const FileExtension = {
+  PDF: '.pdf',
+  JPG: '.jpg',
+  JPEG: '.jpeg',
+  PNG: '.png',
+  XLSX: '.xlsx',
+  XLS: '.xls',
+  CSV: '.csv',
+  /** Service uploads only (mca-api artifacts). No user flow accepts it. */
+  ZIP: '.zip',
+} as const;
+export type FileExtension = (typeof FileExtension)[keyof typeof FileExtension];
+
+export const FILE_EXTENSIONS: readonly FileExtension[] = Object.values(FileExtension);
+
 export interface FileKind {
-  /** Lowercase, with the leading dot. */
-  readonly extension: string;
+  readonly extension: FileExtension;
   /** Signed into the upload URL and stored on the object. */
   readonly contentType: string;
   /** For messages: "PDF", "JPG". */
   readonly label: string;
 }
 
+/** `satisfies` makes adding an extension without a kind a compile error. */
 export const FILE_KINDS = {
-  '.pdf': { extension: '.pdf', contentType: 'application/pdf', label: 'PDF' },
-  '.jpg': { extension: '.jpg', contentType: 'image/jpeg', label: 'JPG' },
-  '.jpeg': { extension: '.jpeg', contentType: 'image/jpeg', label: 'JPEG' },
-  '.png': { extension: '.png', contentType: 'image/png', label: 'PNG' },
-  '.xlsx': {
-    extension: '.xlsx',
+  [FileExtension.PDF]: { extension: FileExtension.PDF, contentType: 'application/pdf', label: 'PDF' },
+  [FileExtension.JPG]: { extension: FileExtension.JPG, contentType: 'image/jpeg', label: 'JPG' },
+  [FileExtension.JPEG]: { extension: FileExtension.JPEG, contentType: 'image/jpeg', label: 'JPEG' },
+  [FileExtension.PNG]: { extension: FileExtension.PNG, contentType: 'image/png', label: 'PNG' },
+  [FileExtension.XLSX]: {
+    extension: FileExtension.XLSX,
     contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     label: 'XLSX',
   },
-  '.xls': { extension: '.xls', contentType: 'application/vnd.ms-excel', label: 'XLS' },
-  '.csv': { extension: '.csv', contentType: 'text/csv', label: 'CSV' },
-  /** Service uploads only (mca-api artifacts). No user flow accepts it. */
-  '.zip': { extension: '.zip', contentType: 'application/zip', label: 'ZIP' },
-} as const satisfies Record<string, FileKind>;
-
-export type FileExtension = keyof typeof FILE_KINDS;
-
-export const FILE_EXTENSIONS = Object.keys(FILE_KINDS) as FileExtension[];
+  [FileExtension.XLS]: { extension: FileExtension.XLS, contentType: 'application/vnd.ms-excel', label: 'XLS' },
+  [FileExtension.CSV]: { extension: FileExtension.CSV, contentType: 'text/csv', label: 'CSV' },
+  [FileExtension.ZIP]: { extension: FileExtension.ZIP, contentType: 'application/zip', label: 'ZIP' },
+} as const satisfies Record<FileExtension, FileKind>;
 
 /** How many leading bytes {@link sniffMatches} needs. */
 export const SNIFF_BYTES = 4096;
 
-export function isFileExtension(value: string): value is FileExtension {
-  return Object.prototype.hasOwnProperty.call(FILE_KINDS, value);
+export function isFileExtension(value: unknown): value is FileExtension {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(FILE_KINDS, value);
 }
 
 /**
@@ -65,44 +76,30 @@ export function contentTypeForFileName(fileName: string): string | null {
 }
 
 /**
- * Parse an accept string, as used by `<input accept>` and `UploadRules.accept`:
- * `".pdf, .JPG"` → `['.pdf', '.jpg']`.
- *
- * @throws Error when it's empty or names a type that isn't in {@link FILE_KINDS}.
- *   Accept strings are code, not user input, so that's a bug to surface.
+ * True when the file name's extension is in `accept`.
+ * @throws TypeError when `accept` isn't an array (for JS callers still passing `".pdf,.png"`)
  */
-export function parseAccept(accept: string): FileExtension[] {
-  const entries = accept
-    .split(',')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean);
-  if (entries.length === 0) throw new Error('accept is empty');
-  for (const entry of entries) {
-    if (!isFileExtension(entry)) throw new Error(`accept lists "${entry}", which is not in FILE_KINDS`);
+export function acceptAllows(accept: readonly FileExtension[], fileName: string): boolean {
+  assertAcceptList(accept);
+  return (accept as readonly string[]).includes(extensionOf(fileName));
+}
+
+/** `[PDF, JPG]` → `"PDF, JPG"`, for messages. */
+export function acceptLabel(accept: readonly FileExtension[]): string {
+  assertAcceptList(accept);
+  return accept.map((ext) => FILE_KINDS[ext].label).join(', ');
+}
+
+/** `[PDF, PNG]` → `".pdf,.png"`, for an `<input accept>` attribute. */
+export function toAcceptAttribute(accept: readonly FileExtension[]): string {
+  assertAcceptList(accept);
+  return accept.join(',');
+}
+
+function assertAcceptList(accept: unknown): asserts accept is readonly FileExtension[] {
+  if (!Array.isArray(accept) || !accept.every(isFileExtension)) {
+    throw new TypeError('accept must be an array of FileExtension values');
   }
-  return [...new Set(entries)] as FileExtension[];
-}
-
-/** True when {@link parseAccept} would accept it. */
-export function isValidAccept(accept: string): boolean {
-  try {
-    parseAccept(accept);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** True when the file name's extension is one that `accept` lists. Throws like {@link parseAccept}. */
-export function acceptAllows(accept: string, fileName: string): boolean {
-  return (parseAccept(accept) as string[]).includes(extensionOf(fileName));
-}
-
-/** `".pdf,.jpg"` → `"PDF, JPG"`, for messages. Throws like {@link parseAccept}. */
-export function acceptLabel(accept: string): string {
-  return parseAccept(accept)
-    .map((ext) => FILE_KINDS[ext].label)
-    .join(', ');
 }
 
 const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
@@ -123,7 +120,8 @@ function startsWithBytes(head: Uint8Array, signature: number[], offset = 0): boo
  *
  * - `.pdf`: `%PDF-` within the first 1 KB (some generators put junk before it)
  * - `.jpg`/`.jpeg`, `.png`: their signatures
- * - `.xlsx`, `.zip`: a ZIP local file header
+ * - `.xlsx`, `.zip`: a ZIP local file header. Any ZIP passes, so a renamed
+ *   `.docx` or `.xlsm` does too; Excel refuses to open those as `.xlsx`.
  * - `.xls`: an OLE compound file header
  * - `.csv`: no NUL bytes. Any 8-bit encoding passes, since banks export Windows-1252.
  *
@@ -132,24 +130,24 @@ function startsWithBytes(head: Uint8Array, signature: number[], offset = 0): boo
 export function sniffMatches(head: Uint8Array, extension: string): boolean {
   if (head.length === 0) return false;
   switch (extension.toLowerCase()) {
-    case '.pdf': {
+    case FileExtension.PDF: {
       const last = Math.min(head.length, PDF_SIGNATURE_WINDOW) - PDF_SIGNATURE.length;
       for (let i = 0; i <= last; i++) {
         if (startsWithBytes(head, PDF_SIGNATURE, i)) return true;
       }
       return false;
     }
-    case '.jpg':
-    case '.jpeg':
+    case FileExtension.JPG:
+    case FileExtension.JPEG:
       return startsWithBytes(head, JPEG_SIGNATURE);
-    case '.png':
+    case FileExtension.PNG:
       return startsWithBytes(head, PNG_SIGNATURE);
-    case '.xlsx':
-    case '.zip':
+    case FileExtension.XLSX:
+    case FileExtension.ZIP:
       return startsWithBytes(head, ZIP_SIGNATURE);
-    case '.xls':
+    case FileExtension.XLS:
       return startsWithBytes(head, OLE_SIGNATURE);
-    case '.csv':
+    case FileExtension.CSV:
       return !head.subarray(0, SNIFF_BYTES).includes(0);
     default:
       return false;

@@ -144,6 +144,7 @@ From a service, `uploadFile` does all three:
 
 ```ts
 import { StorageClient, StorageClientError } from '@bentham/constants/storage';
+import { FileExtension } from '@bentham/constants/file-kinds';
 
 const storage = new StorageClient({ serviceName: 'bentham-mca-api' });
 
@@ -151,7 +152,7 @@ const storage = new StorageClient({ serviceName: 'bentham-mca-api' });
 const url = await storage.uploadFile('/tmp/artifacts.zip', 'artifacts.zip', `incorporation/${id}/artifacts`);
 
 // Optional rules: accept defaults to the file's own extension, maxSize to SERVICE_MAX_UPLOAD_BYTES.
-await storage.uploadFile(pdf, 'form.pdf', folder, { accept: '.pdf', maxSize: 10 * 1024 * 1024 });
+await storage.uploadFile(pdf, 'form.pdf', folder, { accept: [FileExtension.PDF], maxSize: 10 * 1024 * 1024 });
 ```
 
 A `StorageClientError` with `code` set means the file was refused (`EMPTY`, `TOO_LARGE`, `TYPE_NOT_ALLOWED`, `CONTENT_MISMATCH` or `PASSWORD_PROTECTED_PDF`). Retrying won't help. Without `code`, the failure may be temporary.
@@ -160,6 +161,6 @@ A `StorageClientError` with `code` set means the file was refused (`EMPTY`, `TOO
 |---|---|
 | `./storage` | `StorageClient` (`uploadFile`, `createUploadUrl`, `checkUpload`, `promoteUpload`, downloads, deletes) and everything in `./storage-contract` |
 | `./storage-contract` | Limits, bucket, paths, refusal codes and messages, request and response types. No Node imports, so browser code can use it. |
-| `./file-kinds` | The allowed file types (`FILE_KINDS`), the content type for each, `accept` helpers and the magic-byte check. No Node imports. |
+| `./file-kinds` | `FileExtension` (use it instead of `'.pdf'` literals), `FILE_KINDS` with the content type for each, `accept` helpers (`acceptAllows`, `acceptLabel`, `toAcceptAttribute` for `<input accept>`) and the magic-byte check. No Node imports. |
 
 The signed URL is a credential: don't log it.

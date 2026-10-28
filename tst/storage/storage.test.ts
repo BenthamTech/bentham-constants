@@ -11,6 +11,7 @@ import {
   PASSWORD_PROTECTED_PDF_MESSAGE,
   type UploadRefusalCode,
 } from '../../src/storage/index';
+import { FileExtension } from '../../src/file-kinds';
 import { logger as mockedLogger } from '../../src/logger/logger';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -233,7 +234,7 @@ describe('StorageClient', () => {
         objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u-1/report.pdf',
         folderPath: 'apps/123',
         timestamp: expect.any(Number),
-        rules: { accept: '.pdf', maxSize: SERVICE_MAX_UPLOAD_BYTES },
+        rules: { accept: ['.pdf'], maxSize: SERVICE_MAX_UPLOAD_BYTES },
         expectedSize: 8,
       });
       expect(promote.timestamp).toBeGreaterThanOrEqual(before);
@@ -269,12 +270,12 @@ describe('StorageClient', () => {
       mockHappyPath();
 
       await createClient().uploadFile(Buffer.from('%PDF-1.7'), 'form.pdf', 'dsc', {
-        accept: '.pdf,.png',
+        accept: [FileExtension.PDF, FileExtension.PNG],
         maxSize: 10 * 1024 * 1024,
       });
 
       expect(JSON.parse(mockFetch.mock.calls[2][1].body).rules).toEqual({
-        accept: '.pdf,.png',
+        accept: ['.pdf', '.png'],
         maxSize: 10 * 1024 * 1024,
       });
     });
@@ -294,7 +295,7 @@ describe('StorageClient', () => {
     it.each([
       ['an unknown type', Buffer.from('MZ'), 'tool.exe', {}, 'TYPE_NOT_ALLOWED'],
       ['no extension', Buffer.from('data'), 'README', {}, 'TYPE_NOT_ALLOWED'],
-      ['a type outside accept', Buffer.from('%PDF'), 'a.pdf', { accept: '.zip' }, 'TYPE_NOT_ALLOWED'],
+      ['a type outside accept', Buffer.from('%PDF'), 'a.pdf', { accept: [FileExtension.ZIP] }, 'TYPE_NOT_ALLOWED'],
       ['an empty file', Buffer.alloc(0), 'a.pdf', {}, 'EMPTY'],
       ['a file over maxSize', Buffer.from('%PDF-1'), 'a.pdf', { maxSize: 3 }, 'TOO_LARGE'],
     ])('refuses %s before contacting anything', async (_label, content, fileName, options, code) => {
@@ -312,10 +313,11 @@ describe('StorageClient', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('throws on an invalid accept string, which is a bug in the caller', async () => {
+    it('throws on an accept that is not a FileExtension list, which is a bug in the caller', async () => {
       await expect(
-        createClient().uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs', { accept: 'application/pdf' }),
-      ).rejects.toThrow('accept lists "application/pdf"');
+        createClient().uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs', { accept: '.pdf' as never }),
+      ).rejects.toThrow(TypeError);
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('sets code when storage-api refuses the file', async () => {
@@ -378,14 +380,14 @@ describe('StorageClient', () => {
     [
       'checkUpload',
       '/api/v1/files/check',
-      { objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u/a.pdf', rules: { accept: '.pdf', maxSize: 10 }, expectedSize: 10 },
+      { objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u/a.pdf', rules: { accept: ['.pdf'], maxSize: 10 }, expectedSize: 10 },
     ],
     [
       'promoteUpload',
       '/api/v1/files/promote',
       {
         objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u/a.pdf',
-        rules: { accept: '.pdf', maxSize: 10 },
+        rules: { accept: ['.pdf'], maxSize: 10 },
         expectedSize: 10,
         folderPath: 'docs',
         timestamp: 1789471578253,

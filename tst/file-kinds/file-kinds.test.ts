@@ -1,16 +1,19 @@
 import {
+  FileExtension,
   FILE_KINDS,
   FILE_EXTENSIONS,
   SNIFF_BYTES,
+  isFileExtension,
   extensionOf,
   kindForFileName,
   contentTypeForFileName,
-  parseAccept,
-  isValidAccept,
   acceptAllows,
   acceptLabel,
+  toAcceptAttribute,
   sniffMatches,
 } from '../../src/file-kinds';
+
+const { PDF, JPG, JPEG, PNG, ZIP } = FileExtension;
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 const ascii = (text: string) => Uint8Array.from(Buffer.from(text, 'latin1'));
@@ -21,7 +24,8 @@ describe('FILE_KINDS', () => {
     expect(FILE_EXTENSIONS).toEqual(['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.xls', '.csv', '.zip']);
   });
 
-  it('keys each kind by its own extension', () => {
+  it('has a kind for every FileExtension, keyed by its own extension', () => {
+    expect(Object.keys(FILE_KINDS)).toEqual(FILE_EXTENSIONS);
     for (const ext of FILE_EXTENSIONS) expect(FILE_KINDS[ext].extension).toBe(ext);
   });
 
@@ -65,36 +69,42 @@ describe('kindForFileName and contentTypeForFileName', () => {
   });
 });
 
-describe('parseAccept', () => {
-  it('normalizes, lowercases and de-duplicates', () => {
-    expect(parseAccept(' .PDF, .jpg,.jpg ,')).toEqual(['.pdf', '.jpg']);
-  });
-
-  it.each(['', ' , ', '.pdf,.docx', 'application/pdf', 'image/*', 'pdf'])('throws on %p', (accept) => {
-    expect(() => parseAccept(accept)).toThrow();
-    expect(isValidAccept(accept)).toBe(false);
-  });
-
-  it('accepts every listed kind', () => {
-    expect(isValidAccept(FILE_EXTENSIONS.join(','))).toBe(true);
+describe('isFileExtension', () => {
+  it('accepts listed extensions only', () => {
+    expect(isFileExtension('.pdf')).toBe(true);
+    expect(isFileExtension('.PDF')).toBe(false);
+    expect(isFileExtension('pdf')).toBe(false);
+    expect(isFileExtension('.docx')).toBe(false);
+    expect(isFileExtension(undefined)).toBe(false);
   });
 });
 
 describe('acceptAllows', () => {
   it('matches the extension case-insensitively', () => {
-    expect(acceptAllows('.pdf,.png', 'Scan.PDF')).toBe(true);
-    expect(acceptAllows('.pdf,.png', 'photo.jpg')).toBe(false);
-    expect(acceptAllows('.pdf', 'no-extension')).toBe(false);
+    expect(acceptAllows([PDF, PNG], 'Scan.PDF')).toBe(true);
+    expect(acceptAllows([PDF, PNG], 'photo.jpg')).toBe(false);
+    expect(acceptAllows([PDF], 'no-extension')).toBe(false);
+    expect(acceptAllows([], 'a.pdf')).toBe(false);
   });
 
   it('treats .jpg and .jpeg as separate entries', () => {
-    expect(acceptAllows('.jpg', 'photo.jpeg')).toBe(false);
+    expect(acceptAllows([JPG], 'photo.jpeg')).toBe(false);
+  });
+
+  it.each([
+    ['a comma-separated string', '.pdf,.png'],
+    ['an unknown extension', ['.pdf', '.docx']],
+    ['an extension without the dot', ['pdf']],
+  ])('throws on %s', (_label, accept) => {
+    expect(() => acceptAllows(accept as never, 'a.pdf')).toThrow(TypeError);
   });
 });
 
-describe('acceptLabel', () => {
-  it('lists the labels in accept order', () => {
-    expect(acceptLabel('.pdf,.jpg,.png')).toBe('PDF, JPG, PNG');
+describe('acceptLabel and toAcceptAttribute', () => {
+  it('keep the order given', () => {
+    expect(acceptLabel([PDF, JPG, PNG])).toBe('PDF, JPG, PNG');
+    expect(toAcceptAttribute([PDF, JPG, JPEG, PNG])).toBe('.pdf,.jpg,.jpeg,.png');
+    expect(toAcceptAttribute([ZIP])).toBe('.zip');
   });
 });
 
