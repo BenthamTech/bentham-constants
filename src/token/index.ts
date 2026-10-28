@@ -63,6 +63,41 @@ export function createSignedToken(options: CreateTokenOptions): string {
 }
 
 /**
+ * Check the signature (constant-time) and expiry, and return the payload.
+ * Returns null for a malformed, tampered or expired token.
+ */
+function decodeVerifiedPayload(secret: string, token: string): TokenPayload | null {
+  if (!secret || !token) return null;
+
+  const [encoded, signature] = token.split('.');
+  if (!encoded || !signature) return null;
+
+  const expectedSignature = createHmac('sha256', secret).update(encoded).digest('hex');
+  try {
+    const provided = Buffer.from(signature);
+    const expected = Buffer.from(expectedSignature);
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+
+  if (typeof payload !== 'object' || payload === null) return null;
+  const { exp } = payload as TokenPayload;
+  if (typeof exp !== 'number' || Math.floor(Date.now() / 1000) >= exp) return null;
+
+  return payload as TokenPayload;
+}
+
+/**
  * Verify an HMAC-signed capability token.
  *
  * Returns `true` only when the signature is valid (constant-time compare), the
@@ -80,36 +115,36 @@ export function verifySignedToken(options: VerifyTokenOptions): boolean {
   const { secret, token, expectedClaims = {}, skipInDev = true } = options;
 
   if (skipInDev && process.env.NODE_ENV === 'development') return true;
-  if (!secret || !token) return false;
 
-  const [encoded, signature] = token.split('.');
-  if (!encoded || !signature) return false;
-
-  const expectedSignature = createHmac('sha256', secret).update(encoded).digest('hex');
-  try {
-    const provided = Buffer.from(signature);
-    const expected = Buffer.from(expectedSignature);
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-
-  let payload: TokenPayload;
-  try {
-    payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-  } catch {
-    return false;
-  }
-
-  if (typeof payload.exp !== 'number' || Math.floor(Date.now() / 1000) >= payload.exp) {
-    return false;
-  }
+  const payload = decodeVerifiedPayload(secret, token);
+  if (!payload) return false;
 
   for (const [key, value] of Object.entries(expectedClaims)) {
     if (payload[key] !== value) return false;
   }
 
   return true;
+}
+
+export interface ReadTokenOptions {
+  /** The shared HMAC secret the token was signed with. */
+  secret: string;
+  /** The token string to read. */
+  token: string;
+}
+
+/**
+ * Verify a token and return its claims plus `exp` (epoch seconds), or `null`
+ * when it's malformed, tampered with or expired.
+ *
+ * Unlike {@link verifySignedToken} there is no development bypass: claims are
+ * only worth reading once the signature is checked.
+ *
+ * Never log the token or the secret.
+ */
+export function readSignedToken(options: ReadTokenOptions): (TokenClaims & { exp: number }) | null {
+  const payload = decodeVerifiedPayload(options.secret, options.token);
+  if (!payload) return null;
+  const { nonce: _nonce, ...claims } = payload;
+  return claims;
 }

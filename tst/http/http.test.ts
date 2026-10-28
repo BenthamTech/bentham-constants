@@ -196,26 +196,6 @@ describe('BaseServiceClient', () => {
     });
   });
 
-  describe('requestRaw', () => {
-    it('sends raw body but uses hmacBody for auth signature', async () => {
-      mockFetch.mockResolvedValue(new Response('ok', { status: 200 }));
-
-      const client = createClient();
-      const rawBody = new Uint8Array([1, 2, 3, 4]);
-      const hmacBody = JSON.stringify({ filename: 'test.pdf', size: 4 });
-
-      await client.requestRaw('POST', '/api/v1/upload', rawBody, hmacBody, {
-        'Content-Type': 'application/octet-stream',
-      });
-
-      const opts = mockFetch.mock.calls[0][1];
-      expect(opts.body).toBe(rawBody);
-      expect(opts.headers['Content-Type']).toBe('application/octet-stream');
-      expect(opts.headers['x-signature']).toHaveLength(64);
-      expect(opts.headers['x-request-id']).toBe('trace-abc-123');
-    });
-  });
-
   describe('trace headers', () => {
     it('includes x-request-id when context has requestId', async () => {
       mockFetch.mockResolvedValue(new Response('{}', { status: 200 }));

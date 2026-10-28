@@ -1,6 +1,6 @@
 {
   "name": "@bentham/constants",
-  "version": "3.2.0",
+  "version": "4.0.0",
   "description": "Shared constants and utilities for Bentham services",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -124,6 +124,14 @@
     "./filing-webhook": {
       "types": "./dist/src/filing-webhook/index.d.ts",
       "default": "./dist/src/filing-webhook/index.js"
+    },
+    "./storage-contract": {
+      "types": "./dist/src/storage-contract/index.d.ts",
+      "default": "./dist/src/storage-contract/index.js"
+    },
+    "./file-kinds": {
+      "types": "./dist/src/file-kinds/index.d.ts",
+      "default": "./dist/src/file-kinds/index.js"
     }
   },
   "files": [

@@ -131,34 +131,6 @@ export class BaseServiceClient {
       this.timeout,
     );
   }
-
-  /**
-   * Make a raw request where the over-the-wire body differs from the HMAC body.
-   * Used for binary/FormData uploads where HMAC is computed over a JSON descriptor
-   * but the actual body is the raw file content.
-   */
-  async requestRaw(
-    method: string,
-    path: string,
-    rawBody: BodyInit,
-    hmacBody: string,
-    extraHeaders?: Record<string, string>,
-  ): Promise<Response> {
-    const authHeaders = this.authFn(method, path, hmacBody);
-    return fetchExternal(
-      this.buildUrl(path),
-      {
-        method,
-        body: rawBody,
-        headers: {
-          ...authHeaders,
-          ...this.traceHeaders(),
-          ...extraHeaders,
-        },
-      },
-      this.timeout,
-    );
-  }
 }
 
 /**

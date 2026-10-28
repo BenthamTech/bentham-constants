@@ -1,4 +1,4 @@
-import { createSignedToken, verifySignedToken } from '../../src/token/index';
+import { createSignedToken, readSignedToken, verifySignedToken } from '../../src/token/index';
 
 describe('createSignedToken / verifySignedToken', () => {
   const secret = 'test-token-secret';
@@ -84,5 +84,50 @@ describe('createSignedToken / verifySignedToken', () => {
   it('does not bypass under NODE_ENV=test', () => {
     // The suite runs under NODE_ENV=test; a garbage token must still fail.
     expect(verifySignedToken({ secret, token: 'garbage.token' })).toBe(false);
+  });
+});
+
+describe('readSignedToken', () => {
+  const secret = 'test-token-secret';
+
+  it('returns the claims and exp of a valid token, without the nonce', () => {
+    const token = createSignedToken({ secret, claims: { uid: 'u1', sz: 2048 }, ttlSeconds: 600 });
+    const claims = readSignedToken({ secret, token });
+    expect(claims).toEqual({ uid: 'u1', sz: 2048, exp: expect.any(Number) });
+    expect(claims!.exp).toBeGreaterThan(Date.now() / 1000);
+  });
+
+  it('returns null for a wrong secret, a tampered payload or an expired token', () => {
+    const token = createSignedToken({ secret, claims: { uid: 'u1' }, ttlSeconds: 600 });
+    expect(readSignedToken({ secret: 'other-secret', token })).toBeNull();
+
+    const [, signature] = token.split('.');
+    const forged = Buffer.from(JSON.stringify({ uid: 'u2', exp: 9999999999, nonce: 'x' })).toString('base64url');
+    expect(readSignedToken({ secret, token: `${forged}.${signature}` })).toBeNull();
+
+    const expired = createSignedToken({ secret, expiresAtMs: Date.now() - 1000 });
+    expect(readSignedToken({ secret, token: expired })).toBeNull();
+  });
+
+  it.each(['', 'garbage', 'a.b.c', '.'])('returns null for %p', (token) => {
+    expect(readSignedToken({ secret, token })).toBeNull();
+  });
+
+  it('returns null for a signed payload that is not an object', () => {
+    const encoded = Buffer.from('null').toString('base64url');
+    const { createHmac } = require('crypto');
+    const signature = createHmac('sha256', secret).update(encoded).digest('hex');
+    expect(readSignedToken({ secret, token: `${encoded}.${signature}` })).toBeNull();
+    expect(verifySignedToken({ secret, token: `${encoded}.${signature}` })).toBe(false);
+  });
+
+  it('never bypasses verification in development', () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+      expect(readSignedToken({ secret, token: 'anything' })).toBeNull();
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
   });
 });
