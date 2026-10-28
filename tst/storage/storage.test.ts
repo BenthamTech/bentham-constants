@@ -1,4 +1,17 @@
-import { StorageClient, StorageClientError, createStorageClient, validateFileContent, withTempDownload, withTempDownloads, friendlyNameFromStorageUrl } from '../../src/storage/index';
+import {
+  StorageClient,
+  StorageClientError,
+  createStorageClient,
+  validateFileContent,
+  withTempDownload,
+  withTempDownloads,
+  friendlyNameFromStorageUrl,
+  SERVICE_MAX_UPLOAD_BYTES,
+  UPLOAD_REFUSAL_MESSAGES,
+  PASSWORD_PROTECTED_PDF_MESSAGE,
+  type UploadRefusalCode,
+} from '../../src/storage/index';
+import { logger as mockedLogger } from '../../src/logger/logger';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -26,6 +39,13 @@ afterEach(() => {
 function createClient(serviceName = 'test-service') {
   return new StorageClient({ serviceName });
 }
+
+/** A storage-api success envelope. */
+function ok(data: unknown) {
+  return new Response(JSON.stringify({ success: true, data }), { status: 200 });
+}
+
+const logger = mockedLogger as unknown as { info: jest.Mock; error: jest.Mock };
 
 describe('StorageClient', () => {
   describe('constructor', () => {
@@ -156,120 +176,254 @@ describe('StorageClient', () => {
   });
 
   describe('uploadFile', () => {
-    it('uploads via multipart form to /api/v1/files/store', async () => {
-      const uploadedUrl = 'gs://bentham-uploads/apps/123/doc.pdf';
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: uploadedUrl } }), { status: 200 }),
+    const SIGNED_URL =
+      'https://storage.googleapis.com/bentham_storage_uploads/u-1/report.pdf?X-Goog-Signature=do-not-log';
+    const SIGNED_HEADERS = {
+      'Content-Type': 'application/pdf',
+      'x-goog-content-length-range': '9,9',
+      'x-goog-if-generation-match': '0',
+    };
+    const STORED_URL = 'https://storage.googleapis.com/bentham_storage/apps/123/1789471578253-report.pdf';
+
+    function uploadUrlResponse(headers: Record<string, string> = SIGNED_HEADERS) {
+      return ok({
+        uploadId: 'u-1',
+        objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u-1/report.pdf',
+        contentType: headers['Content-Type'],
+        upload: { method: 'PUT', url: SIGNED_URL, headers },
+        expiresAt: '2026-10-28T12:15:00.000Z',
+      });
+    }
+
+    function mockHappyPath(headers?: Record<string, string>) {
+      mockFetch
+        .mockResolvedValueOnce(uploadUrlResponse(headers))
+        .mockResolvedValueOnce(new Response(null, { status: 200 }))
+        .mockResolvedValueOnce(ok({ url: STORED_URL, size: 9, contentType: 'application/pdf' }));
+    }
+
+    it('asks for an upload URL, PUTs the bytes, then promotes', async () => {
+      mockHappyPath();
+      const before = Date.now();
+
+      const result = await createClient('bentham-mca-api').uploadFile(
+        Buffer.from('%PDF-1.7'),
+        'report.pdf',
+        'apps/123',
       );
 
-      const client = createClient();
-      const buffer = Buffer.from('PDF content here');
-      const result = await client.uploadFile(buffer, 'document.pdf', 'applications/123/documents');
+      expect(result).toBe(STORED_URL);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
 
-      expect(result).toBe(uploadedUrl);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.storage.bentham.legal/api/v1/files/store',
-        expect.objectContaining({ method: 'POST' }),
-      );
+      const [uploadUrlCall, putCall, promoteCall] = mockFetch.mock.calls;
+      expect(uploadUrlCall[0]).toBe('https://api.storage.bentham.legal/api/v1/files/upload_url');
+      expect(JSON.parse(uploadUrlCall[1].body)).toEqual({ fileName: 'report.pdf', size: 8 });
+      expect(uploadUrlCall[1].headers['x-service-id']).toBe('bentham-mca-api');
+
+      expect(putCall[0]).toBe(SIGNED_URL);
+      expect(putCall[1].method).toBe('PUT');
+      expect(putCall[1].headers).toEqual(SIGNED_HEADERS);
+      expect(putCall[1].headers['x-signature']).toBeUndefined(); // no HMAC to GCS
+      expect(putCall[1].body).toBeInstanceOf(Blob);
+      expect(await (putCall[1].body as Blob).text()).toBe('%PDF-1.7');
+
+      expect(promoteCall[0]).toBe('https://api.storage.bentham.legal/api/v1/files/promote');
+      const promote = JSON.parse(promoteCall[1].body);
+      expect(promote).toEqual({
+        objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u-1/report.pdf',
+        folderPath: 'apps/123',
+        timestamp: expect.any(Number),
+        rules: { accept: '.pdf', maxSize: SERVICE_MAX_UPLOAD_BYTES },
+        expectedSize: 8,
+      });
+      expect(promote.timestamp).toBeGreaterThanOrEqual(before);
     });
 
-    it('sends FormData as body', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
-      );
+    it('streams a file path with an explicit Content-Length', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bentham-upload-'));
+      const filePath = path.join(dir, 'artifacts.zip');
+      const content = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(70_000, 7)]);
+      fs.writeFileSync(filePath, content);
+      const zipHeaders = { ...SIGNED_HEADERS, 'Content-Type': 'application/zip' };
+      mockHappyPath(zipHeaders);
 
-      const client = createClient();
-      const buffer = Buffer.from('test data');
-      await client.uploadFile(buffer, 'test.pdf', 'folder/path');
+      try {
+        await createClient().uploadFile(filePath, 'artifacts.zip', 'apps/123/artifacts');
 
-      const body = mockFetch.mock.calls[0][1].body;
-      expect(body).toBeInstanceOf(FormData);
+        const put = mockFetch.mock.calls[1][1];
+        expect(put.headers).toEqual({ ...zipHeaders, 'Content-Length': String(content.length) });
+        expect(put.duplex).toBe('half');
+        expect(put.body).toBeInstanceOf(ReadableStream);
+        const sent = Buffer.from(await new Response(put.body).arrayBuffer());
+        expect(sent.equals(content)).toBe(true);
+        expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+          fileName: 'artifacts.zip',
+          size: content.length,
+        });
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
-    it('includes HMAC headers computed from JSON descriptor', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
-      );
+    it('sends accept and maxSize as the promote rules', async () => {
+      mockHappyPath();
 
-      const client = createClient('bentham-app');
-      await client.uploadFile(Buffer.from('data'), 'file.pdf', 'uploads/docs');
+      await createClient().uploadFile(Buffer.from('%PDF-1.7'), 'form.pdf', 'dsc', {
+        accept: '.pdf,.png',
+        maxSize: 10 * 1024 * 1024,
+      });
 
-      const headers = mockFetch.mock.calls[0][1].headers;
-      expect(headers['x-service-id']).toBe('bentham-app');
-      expect(headers['x-signature']).toHaveLength(64);
-    });
-
-    it('throws StorageClientError on non-2xx response', async () => {
-      mockFetch.mockResolvedValue(
-        new Response('{"error":"quota exceeded"}', { status: 507 }),
-      );
-
-      const client = createClient();
-      await expect(
-        client.uploadFile(Buffer.from('data'), 'file.pdf', 'path'),
-      ).rejects.toThrow(StorageClientError);
-
-      mockFetch.mockResolvedValue(
-        new Response('{"error":"quota exceeded"}', { status: 507 }),
-      );
-      await expect(
-        client.uploadFile(Buffer.from('data'), 'file.pdf', 'path'),
-      ).rejects.toMatchObject({
-        operation: 'upload',
-        status: 507,
-        responseBody: '{"error":"quota exceeded"}',
+      expect(JSON.parse(mockFetch.mock.calls[2][1].body).rules).toEqual({
+        accept: '.pdf,.png',
+        maxSize: 10 * 1024 * 1024,
       });
     });
 
-    it('accepts Uint8Array as buffer', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
-      );
+    it('gives the PUT a timeout that grows with the size', async () => {
+      const timeout = jest.spyOn(AbortSignal, 'timeout');
+      mockHappyPath();
+      await createClient().uploadFile(Buffer.alloc(3 * 1024 * 1024 + 1, 1), 'big.pdf', 'docs');
+      expect(timeout).toHaveBeenCalledWith(60_000 + 2_000 * 4);
 
-      const client = createClient();
-      const uint8 = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0]);
-      const result = await client.uploadFile(uint8, 'image.jpg', 'images');
-
-      expect(result).toBe('gs://bucket/file.pdf');
+      mockHappyPath();
+      await createClient().uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs', { putTimeoutMs: 5_000 });
+      expect(timeout).toHaveBeenCalledWith(5_000);
+      timeout.mockRestore();
     });
 
-    it('sets Blob content type from file extension', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
-      );
+    it.each([
+      ['an unknown type', Buffer.from('MZ'), 'tool.exe', {}, 'TYPE_NOT_ALLOWED'],
+      ['no extension', Buffer.from('data'), 'README', {}, 'TYPE_NOT_ALLOWED'],
+      ['a type outside accept', Buffer.from('%PDF'), 'a.pdf', { accept: '.zip' }, 'TYPE_NOT_ALLOWED'],
+      ['an empty file', Buffer.alloc(0), 'a.pdf', {}, 'EMPTY'],
+      ['a file over maxSize', Buffer.from('%PDF-1'), 'a.pdf', { maxSize: 3 }, 'TOO_LARGE'],
+    ])('refuses %s before contacting anything', async (_label, content, fileName, options, code) => {
+      const err = await createClient()
+        .uploadFile(content, fileName, 'docs', options)
+        .catch((e: unknown) => e);
 
-      const client = createClient();
-      await client.uploadFile(Buffer.from('data'), 'report.pdf', 'docs');
-
-      const body = mockFetch.mock.calls[0][1].body as FormData;
-      const file = body.get('file') as File;
-      expect(file.type).toBe('application/pdf');
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err).toMatchObject({ operation: 'upload', status: 422, code });
+      expect(JSON.parse((err as StorageClientError).responseBody)).toEqual({
+        success: false,
+        code,
+        message: UPLOAD_REFUSAL_MESSAGES[code as UploadRefusalCode],
+      });
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('uses explicit contentType over inferred', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.pdf' } }), { status: 200 }),
-      );
-
-      const client = createClient();
-      await client.uploadFile(Buffer.from('data'), 'file.bin', 'uploads', 'application/pdf');
-
-      const body = mockFetch.mock.calls[0][1].body as FormData;
-      const file = body.get('file') as File;
-      expect(file.type).toBe('application/pdf');
+    it('throws on an invalid accept string, which is a bug in the caller', async () => {
+      await expect(
+        createClient().uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs', { accept: 'application/pdf' }),
+      ).rejects.toThrow('accept lists "application/pdf"');
     });
 
-    it('falls back to octet-stream for unknown extensions', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ data: { url: 'gs://bucket/file.xyz' } }), { status: 200 }),
+    it('sets code when storage-api refuses the file', async () => {
+      const refusal = {
+        success: false,
+        code: 'PASSWORD_PROTECTED_PDF',
+        message: PASSWORD_PROTECTED_PDF_MESSAGE,
+      };
+      mockFetch
+        .mockResolvedValueOnce(uploadUrlResponse())
+        .mockResolvedValueOnce(new Response(null, { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify(refusal), { status: 422 }));
+
+      await expect(
+        createClient().uploadFile(Buffer.from('%PDF-1.7'), 'locked.pdf', 'docs'),
+      ).rejects.toMatchObject({
+        operation: 'promoteUpload',
+        status: 422,
+        code: 'PASSWORD_PROTECTED_PDF',
+      });
+    });
+
+    it('leaves code unset for failures worth retrying', async () => {
+      mockFetch.mockResolvedValueOnce(new Response('{"success":false}', { status: 503 }));
+
+      const err = await createClient()
+        .uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs')
+        .catch((e: unknown) => e);
+
+      expect(err).toMatchObject({ operation: 'createUploadUrl', status: 503 });
+      expect((err as StorageClientError).code).toBeUndefined();
+    });
+
+    it('reports a refused PUT without echoing the signed request or logging the URL', async () => {
+      const gcsError =
+        '<?xml version="1.0"?><Error><Code>SignatureDoesNotMatch</Code><Message>Access denied.</Message>' +
+        '<StringToSign>GOOG4-RSA-SHA256 secret-ish</StringToSign></Error>';
+      mockFetch
+        .mockResolvedValueOnce(uploadUrlResponse())
+        .mockResolvedValueOnce(new Response(gcsError, { status: 403 }));
+
+      const err = await createClient()
+        .uploadFile(Buffer.from('%PDF'), 'a.pdf', 'docs')
+        .catch((e: unknown) => e);
+
+      expect(err).toMatchObject({
+        operation: 'upload',
+        status: 403,
+        responseBody: 'SignatureDoesNotMatch: Access denied.',
+      });
+      expect((err as StorageClientError).code).toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(2); // no promote
+      const logged = JSON.stringify([logger.info.mock.calls, logger.error.mock.calls]);
+      expect(logged).not.toContain('X-Goog-Signature');
+    });
+  });
+
+  describe.each([
+    ['createUploadUrl', '/api/v1/files/upload_url', { fileName: 'a.pdf', size: 10 }],
+    [
+      'checkUpload',
+      '/api/v1/files/check',
+      { objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u/a.pdf', rules: { accept: '.pdf', maxSize: 10 }, expectedSize: 10 },
+    ],
+    [
+      'promoteUpload',
+      '/api/v1/files/promote',
+      {
+        objectUrl: 'https://storage.googleapis.com/bentham_storage_uploads/u/a.pdf',
+        rules: { accept: '.pdf', maxSize: 10 },
+        expectedSize: 10,
+        folderPath: 'docs',
+        timestamp: 1789471578253,
+      },
+    ],
+  ] as const)('%s', (method, apiPath, request) => {
+    it(`posts the request to ${apiPath} and returns data`, async () => {
+      mockFetch.mockResolvedValueOnce(ok({ any: 'data' }));
+
+      const result = await (createClient() as any)[method](request);
+
+      expect(result).toEqual({ any: 'data' });
+      expect(mockFetch).toHaveBeenCalledWith(
+        `https://api.storage.bentham.legal${apiPath}`,
+        expect.objectContaining({ method: 'POST', body: JSON.stringify(request) }),
+      );
+      expect(mockFetch.mock.calls[0][1].headers['x-signature']).toHaveLength(64);
+    });
+
+    it('maps a 422 refusal to code', async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: false, code: 'CONTENT_MISMATCH', message: 'x' }), { status: 422 }),
       );
 
-      const client = createClient();
-      await client.uploadFile(Buffer.from('data'), 'file.xyz', 'uploads');
+      await expect((createClient() as any)[method](request)).rejects.toMatchObject({
+        operation: method,
+        status: 422,
+        code: 'CONTENT_MISMATCH',
+      });
+    });
 
-      const body = mockFetch.mock.calls[0][1].body as FormData;
-      const file = body.get('file') as File;
-      expect(file.type).toBe('application/octet-stream');
+    it('ignores a 422 that is not a refusal', async () => {
+      mockFetch.mockResolvedValueOnce(new Response('not json', { status: 422 }));
+
+      const err = await (createClient() as any)[method](request).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(StorageClientError);
+      expect(err.code).toBeUndefined();
     });
   });
 
@@ -327,6 +481,11 @@ describe('StorageClientError', () => {
   it('is an instance of Error', () => {
     const error = new StorageClientError('delete', 403, 'forbidden');
     expect(error).toBeInstanceOf(Error);
+  });
+
+  it('carries a refusal code when given one', () => {
+    expect(new StorageClientError('promoteUpload', 422, '{}', 'TOO_LARGE').code).toBe('TOO_LARGE');
+    expect(new StorageClientError('upload', 500, 'x').code).toBeUndefined();
   });
 });
 

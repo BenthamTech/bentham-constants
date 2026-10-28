@@ -9,6 +9,25 @@ import { BaseServiceClient, ServiceClientError } from '../http';
 import { serviceUrls } from '../config';
 import { fetchExternal } from '../fetch';
 import { HMAC_ENV_KEYS } from '../env-keys';
+import { acceptAllows, kindForFileName } from '../file-kinds';
+import {
+  SERVICE_MAX_UPLOAD_BYTES,
+  StorageUploadPath,
+  UPLOAD_REFUSAL_MESSAGES,
+  UPLOAD_REFUSAL_STATUS,
+  UploadRefusalCode,
+  isUploadRefusal,
+  type CheckUploadRequest,
+  type CheckUploadResponse,
+  type PromoteUploadRequest,
+  type PromoteUploadResponse,
+  type SignedPut,
+  type StorageApiSuccess,
+  type UploadUrlRequest,
+  type UploadUrlResponse,
+} from '../storage-contract';
+
+export * from '../storage-contract';
 
 export interface StorageClientOptions {
   /** Calling service name (sent as x-service-id in HMAC headers) */
@@ -19,6 +38,18 @@ export interface StorageClientOptions {
   secretEnvVar?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
+}
+
+export interface UploadFileOptions {
+  /**
+   * Extensions this upload may have, as in `<input accept>`: `'.pdf'`.
+   * Defaults to the file name's own extension, which must be in FILE_KINDS.
+   */
+  accept?: string;
+  /** Largest allowed size in bytes. Defaults to SERVICE_MAX_UPLOAD_BYTES. */
+  maxSize?: number;
+  /** Timeout for the PUT to GCS. Defaults to 60 s plus 2 s per MiB. */
+  putTimeoutMs?: number;
 }
 
 export interface DownloadOptions {
@@ -38,7 +69,8 @@ export interface DownloadOptions {
 
 /**
  * Pre-built HMAC-authenticated client for bentham-storage-api.
- * Provides typed methods for all storage operations: getSignedUrl, uploadFile, deleteFile.
+ * Provides typed methods for all storage operations: getSignedUrl, uploadFile, deleteFile,
+ * and the direct-upload steps (createUploadUrl, checkUpload, promoteUpload).
  *
  * @example
  * ```ts
@@ -81,30 +113,88 @@ export class StorageClient extends BaseServiceClient {
   }
 
   /**
-   * Upload a file buffer to GCS via the storage API.
-   * @param buffer - File contents as a Buffer or Uint8Array
-   * @param fileName - Filename to store as (e.g. 'document.pdf')
-   * @param folderPath - GCS folder path (e.g. 'applications/123/documents')
-   * @param contentType - MIME type (e.g. 'application/pdf'). If omitted, inferred from fileName extension.
-   * @returns The stored file's GCS URL
+   * Store a file from this service. Asks storage-api for a signed upload URL,
+   * PUTs the bytes straight to GCS, then promotes the file into `folderPath`.
+   *
+   * The content type comes from the file name's extension, which must be in
+   * FILE_KINDS. A file path is streamed, so a large file isn't held in memory.
+   *
+   * @param content - The bytes, or the path of a local file
+   * @param fileName - Name to store as (e.g. 'incorporation_artifacts.zip')
+   * @param folderPath - Folder in the documents bucket (e.g. 'applications/123/documents')
+   * @returns The stored file's URL
+   * @throws StorageClientError. When `code` is set the file was refused: retrying won't help.
    */
-  async uploadFile(buffer: Buffer | Uint8Array, fileName: string, folderPath: string, contentType?: string): Promise<string> {
-    const mime = contentType || inferMimeType(fileName);
-    const formData = new FormData();
-    formData.append('file', new Blob([buffer], { type: mime }), fileName);
-    formData.append('folderPath', folderPath);
-    formData.append('fileName', fileName);
-
-    const hmacBody = JSON.stringify({ folderPath, fileName });
-    const response = await this.requestRaw('POST', '/api/v1/files/store', formData, hmacBody);
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      throw new StorageClientError('upload', response.status, errorBody);
+  async uploadFile(
+    content: Buffer | Uint8Array | string,
+    fileName: string,
+    folderPath: string,
+    options: UploadFileOptions = {},
+  ): Promise<string> {
+    const kind = kindForFileName(fileName);
+    const accept = options.accept ?? kind?.extension ?? '';
+    if (!kind || !acceptAllows(accept, fileName)) {
+      throw refusal(UploadRefusalCode.TYPE_NOT_ALLOWED);
     }
 
-    const json = await response.json() as { data: { url: string } };
-    return json.data.url;
+    const maxSize = options.maxSize ?? SERVICE_MAX_UPLOAD_BYTES;
+    const size =
+      typeof content === 'string' ? (await fs.promises.stat(content)).size : content.byteLength;
+    if (size === 0) throw refusal(UploadRefusalCode.EMPTY);
+    if (size > maxSize) throw refusal(UploadRefusalCode.TOO_LARGE);
+
+    const target = await this.createUploadUrl({ fileName, size });
+    await putToSignedUrl(target.upload, content, size, options.putTimeoutMs ?? defaultPutTimeoutMs(size));
+    const stored = await this.promoteUpload({
+      objectUrl: target.objectUrl,
+      folderPath,
+      timestamp: Date.now(),
+      rules: { accept, maxSize },
+      expectedSize: size,
+    });
+    return stored.url;
+  }
+
+  /**
+   * Get a signed PUT into the uploads bucket. Send the bytes with exactly
+   * `upload.headers`; the URL is a credential, so never log it.
+   */
+  async createUploadUrl(request: UploadUrlRequest): Promise<UploadUrlResponse> {
+    return this.postData('createUploadUrl', StorageUploadPath.UPLOAD_URL, request);
+  }
+
+  /**
+   * Run the shared file checks on a staged object without moving it.
+   * @throws StorageClientError with `code` set when the file is refused (422)
+   */
+  async checkUpload(request: CheckUploadRequest): Promise<CheckUploadResponse> {
+    return this.postData('checkUpload', StorageUploadPath.CHECK, request);
+  }
+
+  /**
+   * Run the shared file checks, then move a staged object into the documents
+   * bucket as `{folderPath}/{timestamp}-{fileName}`. Safe to retry with the same request.
+   * @throws StorageClientError with `code` set when the file is refused (422)
+   */
+  async promoteUpload(request: PromoteUploadRequest): Promise<PromoteUploadResponse> {
+    return this.postData('promoteUpload', StorageUploadPath.PROMOTE, request);
+  }
+
+  private async postData<T>(operation: string, apiPath: string, payload: unknown): Promise<T> {
+    try {
+      const res = await this.post<StorageApiSuccess<T>>(apiPath, payload);
+      return res.data;
+    } catch (err) {
+      if (err instanceof ServiceClientError) {
+        throw new StorageClientError(
+          operation,
+          err.status,
+          err.responseBody,
+          refusalCodeOf(err.status, err.responseBody),
+        );
+      }
+      throw err;
+    }
   }
 
   /**
@@ -172,6 +262,8 @@ export class StorageClientError extends Error {
     public readonly operation: string,
     public readonly status: number,
     public readonly responseBody: string,
+    /** Set when the file was refused. A refusal is permanent: don't retry. */
+    public readonly code?: UploadRefusalCode,
   ) {
     super(`Storage ${operation} failed: ${status}`);
     this.name = 'StorageClientError';
@@ -186,32 +278,61 @@ export function createStorageClient(serviceName: string): StorageClient {
   return new StorageClient({ serviceName });
 }
 
-/**
- * MIME type lookup table -- hoisted to module scope to avoid re-allocation per call.
- */
-const MIME_MAP: Record<string, string> = {
-  pdf: 'application/pdf',
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  svg: 'image/svg+xml',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xls: 'application/vnd.ms-excel',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  csv: 'text/csv',
-  txt: 'text/plain',
-  json: 'application/json',
-};
+/** A refusal decided before anything is sent. It looks the same as one from storage-api. */
+function refusal(code: UploadRefusalCode): StorageClientError {
+  const body = JSON.stringify({ success: false, code, message: UPLOAD_REFUSAL_MESSAGES[code] });
+  return new StorageClientError('upload', UPLOAD_REFUSAL_STATUS, body, code);
+}
+
+function refusalCodeOf(status: number, responseBody: string): UploadRefusalCode | undefined {
+  if (status !== UPLOAD_REFUSAL_STATUS) return undefined;
+  try {
+    const body: unknown = JSON.parse(responseBody);
+    return isUploadRefusal(body) ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function defaultPutTimeoutMs(size: number): number {
+  return 60_000 + 2_000 * Math.ceil(size / (1024 * 1024));
+}
 
 /**
- * Infer MIME type from file extension. Falls back to application/octet-stream.
+ * PUT bytes to a signed URL. Uses plain fetch, not fetchExternal, so the
+ * signed URL never reaches the logs.
  */
-function inferMimeType(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  return (ext && MIME_MAP[ext]) || 'application/octet-stream';
+async function putToSignedUrl(
+  upload: SignedPut,
+  content: Buffer | Uint8Array | string,
+  size: number,
+  timeoutMs: number,
+): Promise<void> {
+  // fetch can't know a stream's length, so state it; GCS needs it to check the signed size.
+  const fromPath = typeof content === 'string';
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: upload.method,
+    headers: fromPath ? { ...upload.headers, 'Content-Length': String(size) } : upload.headers,
+    body: fromPath
+      ? (Readable.toWeb(fs.createReadStream(content)) as ReadableStream<Uint8Array>)
+      : new Blob([content]),
+    signal: AbortSignal.timeout(timeoutMs),
+  };
+  if (fromPath) init.duplex = 'half';
+
+  const response = await fetch(upload.url, init);
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new StorageClientError('upload', response.status, gcsErrorSummary(text));
+  }
+  await response.body?.cancel();
+}
+
+/** `<Code>` and `<Message>` from a GCS XML error, without the rest of the request it echoes. */
+function gcsErrorSummary(xml: string): string {
+  const code = /<Code>([^<]*)<\/Code>/.exec(xml)?.[1];
+  const message = /<Message>([^<]*)<\/Message>/.exec(xml)?.[1];
+  return [code, message].filter(Boolean).join(': ');
 }
 
 /**
